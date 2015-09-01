@@ -1,0 +1,29 @@
+File Directory Structure Description:
+patches_tool
+├─002_aws_patch
+│  ├─aws_deps           AWS dependencies file
+│  │  ├─backports
+│  │  │
+│  │  ├─libcloud
+│  │  │
+│  │  └─vmx
+│  └─code               Hybrid cloud modules code patch file
+│      ├─cinder
+│      │
+│      ├─etc
+│      │  ├─cinder
+│      │  │
+│      │  └─nova
+│      │
+│      ├─neutron
+│      │
+│      └─nova
+│
+└─install_tool
+
+
+Instructions:
+1. Copy these files into vcloud cascaed node to any directory, eg: /home.
+   cd patches_tool/aws_patch/
+2. Modify aws_config.ini, add_router.sh and replace cgw.pem
+3. python patch_file.py --config-file=/home/patches_tool/aws_patch/aws_config.ini

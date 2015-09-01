@@ -1,0 +1,25 @@
+[DEFAULT]
+dns_server_ip=%dns%
+
+[provider_opts]
+access_key_id=%access_key_id%
+secret_key=%secret_key%
+region=%aws_region%
+availability_zone=%availability_zone%
+base_linux_image=ami-56962d56
+storage_tmp_dir=tokyohybridbucket
+cascaded_node_id=i-test
+subnet_data=%data_subnet_id%
+subnet_api=%api_subnet_id%
+flavor_map=m1.tiny:t2.micro, m1.small:t2.micro, m1.medium:t2.micro3, m1.large:t2.micro, m1.xlarge:t2.micro
+cgw_host_ip=%cgw_ip%
+cgw_host_id=%cgw_id%
+cgw_user_name=ec2-user
+cgw_certificate=/home/cgw.pem
+rabbit_password_public=FusionSphere123
+rabbit_host_ip_public=%openstack_az_host_ip%
+vpn_route_gateway=%vm_route%
+
+[vtepdriver]
+provider_api_network_name=%api_subnet_id%
+provider_tunnel_network_name=%data_subnet_id%
