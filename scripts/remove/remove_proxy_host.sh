@@ -1,8 +1,8 @@
 #!/bin/sh
 #2015.8.18 test ok
 dir=`cd "$(dirname "$0")"; pwd`
-RUN_SCRIPT=${dir}/remote_proxy_host_run.sh
-RUN_LOG=${dir}/remote_proxy_host_run.LOG
+RUN_SCRIPT=${dir}/remove_proxy_host_run.sh
+RUN_LOG=${dir}/remove_proxy_host_run.log
 
 id=${1}
 

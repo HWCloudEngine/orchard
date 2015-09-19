@@ -1035,7 +1035,7 @@ class Cloud(resource.Resource):
 
         #For HCC show in CI special code --- start
         temp_az=az_alias.lower()
-        if temp_az == "az31" or temp_az == "az32":
+        if temp_az == "az31":
             return
         #For HCC show in CI special code --- end       
  
@@ -1055,7 +1055,7 @@ class Cloud(resource.Resource):
         #For HCC show in CI special code --- start
         az_alias=self.properties.get(self.AZNAME)
         temp_az=az_alias.lower()
-        if temp_az == "az31" or temp_az == "az32":
+        if temp_az == "az31":
             return
         #For HCC show in CI special code --- end
         
@@ -1168,12 +1168,68 @@ class FusionsphereCloud(resource.Resource):
 
     def handle_delete(self):
         pass
+
+class HWSCloud(resource.Resource):
+    PROPERTIES = (
+        CLOUD_TYPE, REGION_NAME, AVAILABILITY_ZONE, AZNAME, ACCESS_KEY, SECRET_KEY,
+        ENABLE_NETWORK_CROSS_CLOUDS
+    ) = (
+        'CloudType', 'RegionName', 'AvailabilityZone', 'AZName', 'AccessKey', 'SecretKey',
+        'EnableNetworkCrossClouds'
+    )
+
+
+    properties_schema = {
+        CLOUD_TYPE: properties.Schema(
+            properties.Schema.STRING,
+            _('Nova instance type (flavor).')
+        ),
+        REGION_NAME: properties.Schema(
+            properties.Schema.STRING,
+            _('Optional Nova keypair name.')
+        ),
+        AVAILABILITY_ZONE: properties.Schema(
+            properties.Schema.STRING,
+            _('Availability zone to launch the instance in.')
+        ),
+        AZNAME: properties.Schema(
+            properties.Schema.STRING,
+            _('Availability zone to launch the instance in.')
+        ),
+        ACCESS_KEY: properties.Schema(
+            properties.Schema.STRING,
+            _('Availability zone to launch the instance in.')
+        ),
+        SECRET_KEY: properties.Schema(
+            properties.Schema.STRING,
+            _('Availability zone to launch the instance in.')
+        ),
+        ENABLE_NETWORK_CROSS_CLOUDS: properties.Schema(
+            properties.Schema.STRING,
+            _('Availability zone to launch the instance in.')
+        ),
+    }
+
+    def __init__(self, name, json_snippet, stack):
+        super(HWSCloud, self).__init__(name, json_snippet, stack)
+        print "This is for adding FusionsphereCloud"
+
+    def handle_create(self):
+        pass
+
+    def handle_update(self, json_snippet, tmpl_diff, prop_diff):
+        pass
+
+    def handle_delete(self):
+        pass
+
 		
 def resource_mapping():
     return {
         'AWS::EC2::Instance': Instance,
         'OS::Heat::HARestarter': Restarter,
         'OS::Heat::Cloud': Cloud,
-		'OS::Heat::vCloudCloud': vCloudCloud,
-		'OS::Heat::FusionsphereCloud': FusionsphereCloud,
+        'OS::Heat::vCloudCloud': vCloudCloud,
+        'OS::Heat::FusionsphereCloud': FusionsphereCloud,
+        'OS::Heat::HWSCloud': HWSCloud,
     }

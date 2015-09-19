@@ -57,13 +57,39 @@ config_route() {
     echo "config dns success"
 }
 
+config_hypernode_api() {
+    cidr_vms=${1}
+    cidr_hns=${2}
+    data_subnet_id=${3}
+    internal_base_subnet_id=${4}
+    hn_image_id=${5}
+    vpc_id=${6}
+    internal_base_ip=${7}
+    tunnel_gw_ip=${8}
 
-if [ $# != 14 ]; then
-    echo "Usage: sh $0 dns access_key_id secret_key aws_region availability_zone api_subnet_id data_subnet_id cgw_id cgw_ip openstack_az_host_ip openstack_api_subnet aws_api_gw openstack_tunnel_subnet aws_tunnel_gw"
+    sed -i "s#%cidr_vms%#${cidr_vms}#" ${AWS_CONFIG_FILE}
+    sed -i "s#%cidr_hns%#${cidr_hns}#" ${AWS_CONFIG_FILE}
+    sed -i "s/%data_subnet_id%/${data_subnet_id}/" ${AWS_CONFIG_FILE}
+    sed -i "s/%internal_base_subnet_id%/${internal_base_subnet_id}/" ${AWS_CONFIG_FILE}
+    sed -i "s/%hn_image_id%/${hn_image_id}/" ${AWS_CONFIG_FILE}
+    sed -i "s/%vpc_id%/${vpc_id}/" ${AWS_CONFIG_FILE}
+    sed -i "s/%internal_base_ip%/${internal_base_ip}/" ${AWS_CONFIG_FILE}
+    sed -i "s/%tunnel_gw_ip%/${tunnel_gw_ip}/" ${AWS_CONFIG_FILE}
+}
+
+conf_cinder_keystone_auth_token() {
+    cascading_domain=${1}
+    sed -i "s#%cascading_domain%#${cascading_domain}#" ${AWS_CONFIG_FILE}
+}
+
+
+if [ $# != 21 ]; then
+    echo "Usage: sh $0 dns access_key_id secret_key aws_region availability_zone api_subnet_id data_subnet_id cgw_id cgw_ip openstack_az_host_ip openstack_api_subnet aws_api_gw openstack_tunnel_subnet aws_tunnel_gw cidr_vms cidr_hns internal_base_subnet_id hn_image_id vpc_id internal_base_ip cascading_domain"
     exit 1
 fi
 create_config_file
 config_dns $1
 config_aws $2 $3 $4 $5 $6 $7 $8 $9 ${10}
 config_route ${11} ${12} ${13} ${14}
-
+config_hypernode_api ${15} ${16} ${7} ${17} ${18} ${19} ${20} ${14}
+conf_cinder_keystone_auth_token ${21}

@@ -4,9 +4,29 @@ dir=`cd "$(dirname "$0")"; pwd`
 RUN_SCRIPT=${dir}/keystone_endpoint_create_run.sh
 RUN_LOG=${dir}/keystone_endpoint_create_run.log
 
-az_domain=$1
+az_domain=${1}
 az_domain_short=${az_domain/".huawei.com"/""}
+v2v_gw_ip=${2}
+
+. /root/adminrc
 keystone service-list > keystone_service_list.temp
+temp=`cat keystone_service_list.temp`
+for i in {1..10}
+do
+    if [ -n "${temp}" ]; then
+        break
+    else
+        . /root/adminrc
+        keystone service-list > keystone_service_list.temp
+        temp=`cat keystone_service_list.temp`
+    fi
+done
+
+if [ -n "${temp}" ]; then
+    continue
+else
+    exit 127
+fi
 
 cps_id=`awk -F "|" '{if($4~/cps/) print $2}' keystone_service_list.temp`
 if [ -z "${cps_id}" ]; then
@@ -87,6 +107,12 @@ if [ -z "${metering_id}" ]; then
     metering_id=`keystone service-list | awk -F "|" '{if($4~/metering/) print $2}'`
 fi
 
+v2v_id=`awk -F "|" '{if($4~/ v2v /) print $2}' keystone_service_list.temp`
+if [ -z "${metering_id}" ]; then
+    sleep 0.5s
+    metering_id=`keystone service-list | awk -F "|" '{if($4~/v2v/) print $2}'`
+fi
+
 echo "#!/usr/bin/sh" > ${RUN_SCRIPT}
 
 echo keystone endpoint-create --region ${az_domain_short} --service ${cps_id} --publicurl "'"https://cps.${az_domain}:443"'" --internalurl "'"https://cps.localdomain.com:8008"'" --adminurl "'"https://cps.${az_domain}:443"'"  >> ${RUN_SCRIPT}
@@ -139,11 +165,13 @@ echo sleep 1s >> ${RUN_SCRIPT}
 
 echo keystone endpoint-create --region ${az_domain_short} --service ${metering_id} --publicurl "'"https://metering.${az_domain}:443"'"  --internalurl "'"https://metering.localdomain.com:8777"'" --adminurl "'"https://metering.${az_domain}:443"'" >> ${RUN_SCRIPT}
 
+echo sleep 1s >> ${RUN_SCRIPT}
+
+echo keystone endpoint-create --region ${az_domain_short} --service ${v2v_id} --publicurl "'"http://${v2v_gw_ip}:8090/"'"  --internalurl "'"http://${v2v_gw_ip}:8090/"'" --adminurl "'"http://${v2v_gw_ip}:8090/"'" >> ${RUN_SCRIPT}
+
 sh ${RUN_SCRIPT} > ${RUN_LOG} 2>&1
 
 temp=`cat ${RUN_LOG} | grep 'Authorization Failed'`
 if [ -n "${temp}" ]; then
     exit 127
 fi
-
-#rm ${RUN_SCRIPT}

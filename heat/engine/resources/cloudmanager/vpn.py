@@ -37,8 +37,10 @@ class VPN(object):
         # scp_file_to_host(self.ssh, VpnConstant.LIST_TUNNEL_SCRIPT,
         #                  VpnConstant.SCRIPTS_DIR, VpnConstant.REMOTE_SCRIPTS_DIR)
 
-        # scp_file_to_host(self.ssh, VpnConstant.REMOVE_TUNNEL_SCRIPT,
-        #                  VpnConstant.SCRIPTS_DIR, VpnConstant.REMOTE_SCRIPTS_DIR)
+        scp_file_to_host(host=self.public_ip, user=self.user, password=self.pass_word,
+                         file_name=VpnConstant.REMOVE_TUNNEL_SCRIPT,
+                         local_dir=VpnConstant.SCRIPTS_DIR,
+                         remote_dir=VpnConstant.REMOTE_SCRIPTS_DIR)
         return True
 
     def update(self, public_ip, user, pass_word):

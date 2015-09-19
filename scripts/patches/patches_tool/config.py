@@ -114,14 +114,12 @@ class ConfigCascading(object):
             host_proxy_in = self.proxy_match_host[proxy_number]
 
             self._add_proxy_role(host_proxy_in, role_nova_proxy)
-            # self._check_service_proxy_status('nova', self._get_nova_template_name(proxy_number), 'fault')
+
             self._add_proxy_role(host_proxy_in, role_neutron_proxy)
-            # self._check_service_proxy_status('neutron', self._get_neutron_l2_template_name(proxy_number), 'fault')
+
             self._add_proxy_role(host_proxy_in, role_cinder_proxy)
-            # self._check_service_proxy_status('cinder', self._get_cinder_template_name(proxy_number), 'fault')
 
             log.info('****  End to add role for Proxy:<<%s>>  ****' % proxy_number)
-            print('****  End to add role for Proxy:<<%s>>  ****' % proxy_number)
 
     def _add_proxy_role(self, host, role_name):
         """
@@ -136,9 +134,21 @@ class ConfigCascading(object):
         :return:
         """
         log.info('Start to add proxy role in host: %s, for role: %s' % (host, role_name))
-        add_result = RefCPSService.role_host_add(role_name, [host])
-        RefCPSService.cps_commit()
-        log.info('Finish to add proxy role in host: %s, for role: %s' % (host, role_name))
+        for i in range(3):
+            try:
+                add_result = RefCPSService.role_host_add(role_name, [host])
+                RefCPSService.cps_commit()
+                log.info('add proxy role success, host: %s, role: %s'
+                         % (host, role_name))
+                return True
+            except Exception as e:
+                log.error("add proxy role error, try again, host: %s, role: %s, exception: %s"
+                          % (host, role_name, e.message))
+                time.sleep(1)
+                continue
+
+        log.error('add proxy role error, host: %s, role: %s' % (host, role_name))
+        return False
 
     def _get_nova_role_name(self, proxy_number):
         service_nova = 'compute'
@@ -163,41 +173,85 @@ class ConfigCascading(object):
         return '-'.join(['cinder', proxy_name])
 
     def config_nova_scheduler(self):
-        updated_params = {'scheduler_default_filters':'AvailabilityZoneFilter'
-        }
+        updated_params = {'scheduler_default_filters':'AvailabilityZoneFilter'}
         service = 'nova'
         template = 'nova-scheduler'
-        self._update_template_params_for_proxy(service, template, updated_params)
-        self._commit_config()
+        return self.__update_template_params_for_proxy__(service, template, updated_params)
 
     def config_neutron_server(self):
-        updated_params = {'lbaas_vip_create_port':'True'
-        }
+        updated_params = {'lbaas_vip_create_port':'True'}
         service = 'neutron'
         template = 'neutron-server'
-        self._update_template_params_for_proxy(service, template, updated_params)
-        self._commit_config()
+        return self.__update_template_params_for_proxy__(service, template, updated_params)
 
     def config_proxy_to_connect_with_cascaded(self):
         for proxy in self.proxies:
-            log.info('Start to config cascading connection for proxy: %s' % proxy)
-            self._config_service_for_nova_proxy(proxy)
-            self._config_for_neutron_l2_proxy(proxy)
-            self._config_for_neutron_l3_proxy(proxy)
-            self._config_cinder_proxy(proxy)
-            log.info('Finish to config cascading connection for proxy: %s' % proxy)
+            log.info('start to config cascading connection for proxy: %s' % proxy)
+            self.__config_service_for_nova_proxy__(proxy)
+            self.__config_for_neutron_l2_proxy__(proxy)
+            self.__config_for_neutron_l3_proxy__(proxy)
+            self.__config_cinder_proxy__(proxy)
+            log.info('finish to config cascading connection for proxy: %s' % proxy)
 
     def config_big_l2_layer_in_proxy_node(self):
+        host_list = None
+        for i in range(3):
+            try:
+                host_list = RefCPSService.host_list()
+                log.info("get host list success.")
+                break
+            except Exception as e:
+                log.error("get host list error, try again. error: %s" % e.message)
+                time.sleep(1)
+                continue
 
-        self._config_big_l2_layer_in_proxy()
+        if host_list is None:
+            log.error("config big l2 layer for proxies failed, get host list failed.")
+            return False
 
-        host_list = RefCPSService.host_list()
+        for proxy in self.proxies:
+            # enable l2 remote port
+            self.__enable_l2_remote_port_for_proxy__(proxy)
 
-        if host_list is not None:
-            self._replace_neutron_l2_proxy_json(host_list)
+            # copy file
+            host_id = self.proxy_match_host[proxy]
+            host_ip = None
+            for host in host_list["hosts"]:
+                if host_id == host["id"]:
+                    host_ip = host["manageip"]
+                    break
+
+            if host_ip is None:
+                log.error("proxy not exist, proxy: %s, proxy id: %s" % (proxy, host_id))
+                continue
+
+            log.info('start to replace neutron l2 proxy json in proxy nodes. proxy: %s' % proxy)
+            replace_result = False
+            for i in range(3):
+                try:
+                    # utils.remote_open_root_permit_for_host(proxy_host_ip)
+                    local_path_of_neutron_l2_proxy = os.path.join(utils.get_patches_tool_path(),
+                                                                  CfgFilePath.NEUTRON_L2_PROXY_PATH_TEMPLATE)
+                    ssh = SSHConnection(host_ip, SysUserInfo.ROOT, SysUserInfo.ROOT_PWD)
+                    ssh.put(local_path_of_neutron_l2_proxy, CfgFilePath.NEUTRON_L2_PROXY_PATH)
+                    ssh.close()
+                    replace_result = True
+                    log.info('replace neutron l2 proxy json success, proxy: %s' % proxy)
+                    break
+                except Exception, e:
+                    log.error('replace neutron l2 proxy json error, try again, proxy: %s, error: %s' % (proxy, e.message))
+                    time.sleep(1)
+                    continue
+                finally:
+                    ssh.close()
+
+            if not replace_result:
+                log.info("replace neutron l2 proxy json failed, proxy: %s" % proxy)
+
+        log.info('finish to replace neutron l2 proxy json in proxy nodes.')
 
     def config_big_l2_layer_in_cascaded_node(self):
-        self._config_big_l2_layer_in_cascaded_node()
+        self._config_big_l2_layer_in_cascaded_node
         self._restart_neutron_openvswitch_agent()
 
     def create_aggregate_in_cascading_node(self):
@@ -244,34 +298,35 @@ class ConfigCascading(object):
             table = 'external_api'
             CommonCMD.create_route_for_table(table, net, ip)
 
-    def _config_big_l2_layer_in_proxy(self):
-        log.info('Start to config big l2 layer. self.proxies = %s ' % self.proxies)
-
-        #self._update_neutron_machanism_drivers_for_cascading()
-        for proxy in self.proxies:
-
-            log.info('Start to config big l2 layer. proxy = %s ' % proxy)
-            self._enable_for_l2_remote_port(proxy)
-
-        self._commit_config()
-        print('End to config big l2 layer.')
-
     def _update_neutron_machanism_drivers_for_cascading(self):
         updated_params = {
             'mechanism_drivers': 'openvswitch,l2populationcascading,basecascading,evs,sriovnicswitch,netmapnicswitch'
         }
         service = 'neutron'
         template = 'neutron-server'
-        self._update_template_params_for_proxy(service, template,updated_params)
+        return self.__update_template_params_for_proxy__(service, template,updated_params)
 
-    def _enable_for_l2_remote_port(self, proxy_name):
-        service='neutron'
+    @staticmethod
+    def __enable_l2_remote_port_for_proxy__(proxy_name):
+        service = 'neutron'
         # e.g. 'neutron-l2-proxy003'
         template = '-'.join(['neutron-l2', proxy_name])
         updated_params = {
             'remote_port_enabled': 'True'
         }
-        self._update_template_params_for_proxy(service, template, updated_params)
+        for i in range(3):
+            try:
+                RefCPSService.update_template_params(service, template, updated_params)
+                RefCPSService.cps_commit()
+                log.info("enable l2 remote port success, proxy: %s" % proxy_name)
+                return True
+            except Exception as e:
+                log.error("enable l2 remote port error, try again, proxy: %s, exception: %s"
+                          % (proxy_name, e.message))
+                time.sleep(1)
+                continue
+        log.error("enable l2 remote port failed, proxy: %s" % proxy_name)
+        return False
 
     def _config_big_l2_layer_in_cascaded_node(self):
         updated_params = {
@@ -279,9 +334,7 @@ class ConfigCascading(object):
         }
         service = 'neutron'
         template = 'neutron-server'
-        self._update_template_params_for_proxy(service, template,updated_params)
-
-        self._commit_config()
+        return self.__update_template_params_for_proxy__(service, template,updated_params)
 
     def _restart_neutron_openvswitch_agent(self):
         """
@@ -342,48 +395,59 @@ class ConfigCascading(object):
         return '.'.join([RefFsSystemUtils.get_az_by_domain(proxy_matched_region),
                                                    RefFsSystemUtils.get_dc_by_domain(proxy_matched_region)])
 
-    def _config_service_for_nova_proxy(self, proxy_name):
+    def __config_service_for_nova_proxy__(self, proxy_name):
         proxy_matched_region = self.proxy_match_region.get(proxy_name)
         proxy_matched_host_region_name = self._get_proxy_region_and_host_region_name(proxy_matched_region)
 
         updated_params = {'cascaded_cinder_url': 'https://volume.%s:443/v2' % proxy_matched_region,
-                     'cascaded_neutron_url': 'https://network.%s:443' % proxy_matched_region,
-                     'cascaded_nova_url': 'https://compute.%s:443/v2' % proxy_matched_region,
-                     'cascaded_glance_url': 'https://image.%s' % self.cascading_region,
-                     'glance_host': 'https://image.%s' % self.cascading_region,
-                     'cascading_nova_url': 'https://compute.%s:443/v2' % self.cascading_region,
-                     'cinder_endpoint_template': "".join(['https://volume.%s:443'% self.cascading_region, '/v2/%(project_id)s']),
-                     'neutron_admin_auth_url': 'https://identity.%s:443/identity/v2.0' % self.cascading_region,
-                     'keystone_auth_url':'https://identity.%s:443/identity/v2.0' % self.cascading_region,
-                     'os_region_name':self.cascading_os_region_name,
-                     'host': proxy_matched_host_region_name,
-                     'proxy_region_name': proxy_matched_host_region_name,
-                     'default_availability_zone': proxy_matched_host_region_name,
-                     'default_schedule_zone': proxy_matched_host_region_name
-        }
+                          'cascaded_neutron_url': 'https://network.%s:443' % proxy_matched_region,
+                          'cascaded_nova_url': 'https://compute.%s:443/v2' % proxy_matched_region,
+                          'cascaded_glance_url': 'https://image.%s' % self.cascading_region,
+                          'glance_host': 'https://image.%s' % self.cascading_region,
+                          'cascading_nova_url': 'https://compute.%s:443/v2' % self.cascading_region,
+                          'cinder_endpoint_template': "".join(
+                              ['https://volume.%s:443' % self.cascading_region, '/v2/%(project_id)s']),
+                          'neutron_admin_auth_url': 'https://identity.%s:443/identity/v2.0' % self.cascading_region,
+                          'keystone_auth_url': 'https://identity.%s:443/identity/v2.0' % self.cascading_region,
+                          'os_region_name': self.cascading_os_region_name, 'host': proxy_matched_host_region_name,
+                          'proxy_region_name': proxy_matched_host_region_name,
+                          'default_availability_zone': proxy_matched_host_region_name,
+                          'default_schedule_zone': proxy_matched_host_region_name}
         service = 'nova'
         template = '-'.join([service, proxy_name])
-        self._update_template_params_for_proxy('nova', template, updated_params)
-        self._commit_config()
-        # self._check_service_proxy_status(service, template, 'active')
+        return self.__update_template_params_for_proxy__(service, template, updated_params)
 
-    def _update_template_params_for_proxy(self, service, template_name, dict_params):
-        result = RefCPSService.update_template_params(service, template_name, dict_params)
-
-        return result
+    @staticmethod
+    def __update_template_params_for_proxy__(service, template_name, dict_params):
+        for i in range(3):
+            try:
+                RefCPSService.update_template_params(service, template_name, dict_params)
+                RefCPSService.cps_commit()
+                log.info("update template params success, service: %s, template_name: %s"
+                         % (service, template_name))
+                time.sleep(1)
+                return True
+            except Exception as e:
+                log.error("update template params error, try again, service: %s, template_name: %s, exception: %s"
+                          % (service, template_name, e.message))
+                time.sleep(1)
+                continue
+        log.error("update template params failed, service: %s, template_name: %s."
+                  % (service, template_name))
+        return False
 
     def _commit_config(self):
         RefCPSService.cps_commit()
 
-    def _config_for_neutron_l2_proxy(self, proxy_name):
+    def __config_for_neutron_l2_proxy__(self, proxy_name):
         neutron_proxy_type = 'l2'
-        self._config_for_neutron_proxy(proxy_name, neutron_proxy_type)
+        self.__config_for_neutron_proxy__(proxy_name, neutron_proxy_type)
 
-    def _config_for_neutron_l3_proxy(self, proxy_name):
+    def __config_for_neutron_l3_proxy__(self, proxy_name):
         neutron_proxy_type = 'l3'
-        self._config_for_neutron_proxy(proxy_name, neutron_proxy_type)
+        self.__config_for_neutron_proxy__(proxy_name, neutron_proxy_type)
 
-    def _config_for_neutron_proxy(self, proxy_name, neutron_proxy_type):
+    def __config_for_neutron_proxy__(self, proxy_name, neutron_proxy_type):
         """
         :param proxy_name: str, 'proxy001', 'proxy002', ...
         :param neutron_proxy_type: str, 'l2' or 'l3'
@@ -391,57 +455,47 @@ class ConfigCascading(object):
         """
         proxy_matched_region = self.proxy_match_region.get(proxy_name)
         proxy_matched_host_region_name = self._get_proxy_region_and_host_region_name(proxy_matched_region)
-        updated_params = {
-            'host': proxy_matched_host_region_name,
-            'neutron_region_name': proxy_matched_host_region_name,
-            'region_name': self.cascading_os_region_name,
-            'neutron_admin_auth_url': 'https://identity.%s:443/identity-admin/v2.0' % self.cascading_region
-        }
+
+        updated_params = {'host': proxy_matched_host_region_name,
+                          'neutron_region_name': proxy_matched_host_region_name,
+                          'region_name': self.cascading_os_region_name,
+                          'neutron_admin_auth_url': 'https://identity.%s:443/identity-admin/v2.0' % self.cascading_region}
+
         service = 'neutron'
         # e.g. 'neutron-l2-proxy001'
         template = '-'.join([service, neutron_proxy_type, proxy_name])
-        self._update_template_params_for_proxy(service, template, updated_params)
-        self._commit_config()
-        # self._check_service_proxy_status(service, template, 'active')
+        return self.__update_template_params_for_proxy__(service, template, updated_params)
 
-    def _config_cinder_proxy(self, proxy_name):
-        try:
-            service = 'cinder'
-            template = '-'.join([service, proxy_name])
-            proxy_matched_region = self.proxy_match_region.get(proxy_name)
-            proxy_matched_host_region_name = self._get_proxy_region_and_host_region_name(proxy_matched_region)
+    def __config_cinder_proxy__(self, proxy_name):
+        service = 'cinder'
+        template = '-'.join([service, proxy_name])
+        proxy_matched_region = self.proxy_match_region.get(proxy_name)
+        proxy_matched_host_region_name = self._get_proxy_region_and_host_region_name(proxy_matched_region)
 
-            for i in range(7):
-                try:
-                    time.sleep(2)
-                    cinder_tenant_id = RefServices().get_tenant_id_for_admin()
-                    break
-                except Exception as e:
-                    log.error("get cinder_tenant_id error, %s" % e.message)
-                    continue
+        # for i in range(3):
+        #     try:
+        #         cinder_tenant_id = RefServices().get_tenant_id_for_admin()
+        #         log.info("get cinder tenant id success")
+        #         break
+        #     except Exception as e:
+        #         log.error("get cinder tenant id error, try again, %s" % e.message)
+        #         time.sleep(1)
+        #         continue
+        #
+        # if cinder_tenant_id is None:
+        #     log.error("config cinder proxy failed, get cinder tenant id failed.")
+        #     return False
 
-            log.info('cinder_tenant_id: %s' % cinder_tenant_id)
+        updated_params = {
+            'cascaded_cinder_url': ''.join(['https://volume.%s:443' % proxy_matched_region, '/v2/%(project_id)s']),
+            # 'cascaded_neutron_url': 'https://network.%s:443' % proxy_matched_region,
+            'cascaded_region_name': proxy_matched_host_region_name,
+            # 'cinder_tenant_id': cinder_tenant_id,
+            'host': proxy_matched_host_region_name,
+            'keystone_auth_url': 'https://identity.%s:443/identity/v2.0' % self.cascading_region,
+            'storage_availability_zone': proxy_matched_host_region_name}
 
-            updated_params = {'cascaded_cinder_url': ''.join(['https://volume.%s:443'%proxy_matched_region,'/v2/%(project_id)s']),
-                         'cascaded_neutron_url': 'https://network.%s:443' % proxy_matched_region,
-                         'cascaded_region_name': proxy_matched_host_region_name,
-                         'cinder_tenant_id': cinder_tenant_id,
-                         'host': proxy_matched_host_region_name,
-                         'keystone_auth_url': 'https://identity.%s:443/identity/v2.0' % self.cascading_region,
-                         'storage_availability_zone': proxy_matched_host_region_name
-            }
-            self._update_template_params_for_proxy(service, template, updated_params)
-            self._commit_config()
-            #self._check_service_proxy_status(service, template, 'active')
-            template_cinder_api = 'cinder-api'
-            template_cinder_scheduler = 'cinder-scheduler'
-            template_cinder_cinder_volume = 'cinder-scheduler'
-            #self._check_service_proxy_status(service, template_cinder_api, 'active')
-            #self._check_service_proxy_status(service, template_cinder_scheduler, 'active')
-            #self._check_service_proxy_status(service, template_cinder_cinder_volume, 'active')
-        except:
-            print 'Exception when cinder proxy config. e: %s' % traceback.format_exc()
-            log.error('e: %s' % traceback.format_exc())
+        return self.__update_template_params_for_proxy__(service, template, updated_params)
 
     def _check_service_proxy_status(self, service, template, aim_status):
         template_instance_info = RefCPSServiceExtent.list_template_instance(service, template)
@@ -485,10 +539,13 @@ class ConfigCascading(object):
         #self.config_nova_scheduler()
         #self.config_neutron_server()
 
+        # reinforce done
         self.add_role_for_proxies()
 
+        # reinforce done
         self.config_proxy_to_connect_with_cascaded()
 
+        # reinforce done
         self.config_big_l2_layer_in_proxy_node()
 
     def config_cascaded_nodes(self):
@@ -638,6 +695,7 @@ if __name__ == '__main__':
 
     #first to dispatch patch_tool to all cascaded node.
     if mode == 'cascading':
+        # reinforce done
         config_cascading.config_cascading_nodes()
 
     elif mode == 'prepare':

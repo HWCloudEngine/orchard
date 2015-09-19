@@ -18,6 +18,7 @@ import fsutils
 import fs_system_util
 import sshutils
 import utils
+import time
 
 import log
 
@@ -124,18 +125,22 @@ class RefServices(object):
 
     def nova_aggregate_create(self, name, availability_zone):
         result = None
+        log.info("create ag, name: %s, availability_zone: %s" % (name, availability_zone))
+        for i in range(100):
+            try:
+                aggregate_result = self.nova.aggregates.create(name, availability_zone)
 
-        try:
-            aggregate_result = self.nova.aggregates.create(name, availability_zone)
+                log.info('created Aggregate result is : %s ' % aggregate_result)
 
-            log.info('created Aggregate result is : %s ' % aggregate_result)
-
-            if aggregate_result.name == name:
-                result = aggregate_result
-        except Exception, e:
-            log.error('Exception when create AG for %s, Exception: %s' % (name, traceback.format_exc()))
-            print(e.message)
-
+                if aggregate_result.name == name:
+                    result = aggregate_result
+                    log.info("created Aggregate success")
+                    return result
+            except Exception as e:
+                log.error('Exception when create AG for %s, error: %s'
+                          % (name, traceback.format_exc()))
+                time.sleep(6)
+                continue
         return result
 
     def nova_host_list(self):
@@ -148,29 +153,34 @@ class RefServices(object):
 
         try:
             add_result = self.nova.aggregates.add_host(aggregate, host)
-            log.info('Add host<%s> to aggregate<%s>, result : %s ' % (host, aggregate, add_result))
+            log.info('Add host<%s> to aggregate<%s>, result : %s '
+                     % (host, aggregate, add_result))
             result = True
-        except:
-            log.error('Exception when add host<%s> to aggregate<%s>, Exception : %s ' %
-                      (host, aggregate, traceback.format_exc()))
+        except Exception as e:
+            log.error('Exception when add host<%s> to aggregate<%s>, Exception : %s '
+                      % (host, aggregate, e.message))
 
         return result
 
     def nova_aggregate_exist(self, name, availability_zone):
-        result = False
-        try:
-            aggregates = self.nova.aggregates.list()
-            for aggregate in aggregates:
-                if aggregate.availability_zone == availability_zone:
-                    result = True
-        except nova_client.exceptions.NotFound:
-            return result
-        except:
-            log.error('Exception when exec nova_aggregate_exist, Exception: %s' % traceback.format_exc())
-            print traceback.format_exc()
-            result = True
+        aggregates = None
+        for i in range(50):
+            try:
+                aggregates = self.nova.aggregates.list()
+                break
+            except Exception as e:
+                log.error("get nova aggregate list error, try again")
+                time.sleep(6)
 
-        return result
+        if aggregates is None:
+            log.error("get nova aggregate list failed.")
+            return False
+
+        for aggregate in aggregates:
+            if aggregate.availability_zone == availability_zone:
+                return True
+
+        return False
 
     def get_tenant_id_for_service(self):
         """
@@ -277,11 +287,12 @@ class RefServices(object):
                 continue
         return result
 
+
 class RefCPSService(object):
 
     @staticmethod
     def update_template_params(service_name, template_name, params):
-        return cps_server.update_template_params(service_name, template_name, params)
+        cps_server.update_template_params(service_name, template_name, params)
 
     @staticmethod
     def get_template_params(server, template):
@@ -305,21 +316,17 @@ class RefCPSService(object):
 
     @staticmethod
     def host_list():
-        """
-
-        :return:
-        """
         return cps_server.cps_host_list()
 
     @staticmethod
     def role_host_add(role_name, hosts):
         """
-
         :param role_name: string of role name, e.g. nova-proxy001
         :param hosts: list of hosts, e.g. ['9A5A2614-D21D-B211-83F3-000000821800', EF1503DA-AEC8-119F-8567-000000821800]
         :return:
         """
-        return cps_server.role_host_add(role_name, hosts)
+        cps_server.role_host_add(role_name, hosts)
+        cps_server.cps_commit
 
     @staticmethod
     def role_host_list(role):
@@ -336,7 +343,7 @@ class RefCPSServiceExtent(object):
     def list_template_instance(service, template):
         url = '/cps/v1/instances?service=%s&template=%s' % (service, template)
         res_text = RefCPSService.get_cps_http(url)
-        if not res_text is None:
+        if res_text is not None:
             return json.loads(res_text)
         return None
 
@@ -489,7 +496,8 @@ class CPSServiceBusiness(object):
         self.check_neutron_l3_template(proxy_number)
         self.check_nova_template(proxy_number)
 
-    def get_dns_info(self):
+    @staticmethod
+    def get_dns_info():
         """
         by "cps template-params-show --service dns dns-server", it will get following result:
         {u'cfg':
@@ -506,14 +514,19 @@ class CPSServiceBusiness(object):
         }
         :return:
         """
-        dns_info = RefCPSService.get_template_params(self.DNS, self.DNS_SERVER_TEMPLATE)
+        server = "dns"
+        template = "dns-server"
+        dns_info = RefCPSService.get_template_params(server, template)
         return dns_info
 
-    def get_region_match_ip(self):
-        dns_info = self.get_dns_info()
+    @staticmethod
+    def get_region_match_ip():
+        server = "dns"
+        template = "dns-server"
+        dns_info = RefCPSService.get_template_params(server, template)
         addresses = dns_info['cfg']['address']
         if not addresses:
-            log.info('address is none in dns info')
+            log.error("address is none in dns info")
             return {}
         region_match_ip = {}
         address_list = addresses.split(',')
@@ -525,7 +538,7 @@ class CPSServiceBusiness(object):
 
         return region_match_ip
 
-    def get_az_ip(self, az_tag):
+    def get_az_ip(self, az_tag, proxy_match_region):
         """
         if the region is "az01.shenzhen--fusionsphere.huawei.com", the az is "az01"
         :param az_tag: string, the full name of az, e.g. az01, az11 and so on.
@@ -534,41 +547,43 @@ class CPSServiceBusiness(object):
         if not self.region_match_ip:
             self.region_match_ip = self.get_region_match_ip()
         ip_list = []
-        for region, ip in self.region_match_ip.items():
-            # if region.startswith(az):
-            #     ip_list.append(ip)
-            if az_tag in region:
-                ip_list.append(ip)
-
+        if proxy_match_region is None:
+            for region, ip in self.region_match_ip.items():
+                if az_tag in region:
+                    ip_list.append(ip)
+        else:
+            for region, ip in self.region_match_ip.items():
+                if az_tag in region and region in proxy_match_region.values():
+                    ip_list.append(ip)
         return ip_list
 
-    def get_cascading_ip(self):
+    def get_cascading_ip(self, proxy_match_region=None):
         """
 
         :return: array list, array list of ip address, e.g. ['162.3.120.52', '162.3.120.53', ...]
         """
-        return self.get_az_ip('cascading')
+        return self.get_az_ip('cascading', proxy_match_region)
 
-    def get_openstack_hosts(self):
+    def get_openstack_hosts(self, proxy_match_region=None):
         """
 
         :return: array list, array list of ip address, e.g. ['162.3.120.52', '162.3.120.53', ...]
         """
-        return self.get_az_ip('--fusionsphere')
+        return self.get_az_ip('--fusionsphere', proxy_match_region)
 
-    def get_vcloud_node_hosts(self):
+    def get_vcloud_node_hosts(self, proxy_match_region=None):
         """
 
         :return: array list, array list of ip address, e.g. ['162.3.120.52', '162.3.120.53', ...]
         """
-        return self.get_az_ip('--vcloud')
+        return self.get_az_ip('--vcloud', proxy_match_region)
 
-    def get_aws_node_hosts(self):
+    def get_aws_node_hosts(self, proxy_match_region=None):
         """
 
         :return: array list, array list of ip address, e.g. ['162.3.120.52', '162.3.120.53', ...]
         """
-        return self.get_az_ip('--aws')
+        return self.get_az_ip('--aws', proxy_match_region)
 
     def get_os_region_name(self):
         region = RefCPSService.get_local_domain()

@@ -13,10 +13,10 @@ class PublicConstant(object):
 
 
 class VpnConstant(object):
-    VPN_ROOT = "root"
-    VPN_ROOT_PWD = "xxx"
-    AWS_VPN_ROOT = "root"
-    AWS_VPN_ROOT_PWD = "xxx"
+    VPN_ROOT = "XXX"
+    VPN_ROOT_PWD = "XXX"
+    AWS_VPN_ROOT = "XXX"
+    AWS_VPN_ROOT_PWD = "XXX"
     # SCRIPTS_DIR = os.path.join(os.path.abspath('.'), "scripts", "vpn")
     # SCRIPTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts", "vpn")
     SCRIPTS_DIR = os.path.join("/home/openstack/cloud_manager", "scripts", "vpn")
@@ -27,21 +27,23 @@ class VpnConstant(object):
 
 
 class Cascaded(object):
-    ROOT = "root"
-    ROOT_PWD = "xxx"
+    ROOT = "XXX"
+    ROOT_PWD = "XXX"
     # SCRIPTS_DIR = os.path.join(os.path.abspath('.'), "scripts", "cascaded")
     # SCRIPTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts", "cascaded")
     SCRIPTS_DIR = os.path.join("/home/openstack/cloud_manager", "scripts", "cascaded")
     REMOTE_SCRIPTS_DIR = "/root/cloud_manager/cascaded/"
     MODIFY_PROXY_SCRIPT = "modify_proxy.sh"
     MODIFY_CASCADED_SCRIPT = "modify_cascaded_domain.sh"
+    MODIFY_CASCADED_SCRIPT_PY = "cascaded_handler.py"
     CASCADED_ADD_ROUTE_SCRIPT = "cascaded_add_route.sh"
     ADD_ROUTE_SCRIPT = "add_route.sh"
+    ADD_API_ROUTE_SCRIPT = "cascaded_add_api_route.sh"
 
 
 class Cascading(object):
-    ROOT = "root"
-    ROOT_PWD = "xxx"
+    ROOT = "XXX"
+    ROOT_PWD = "XXX"
     # SCRIPTS_DIR = os.path.join(os.path.abspath('.'), "scripts", "cascading")
     # SCRIPTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts", "cascading")
     SCRIPTS_DIR = os.path.join("/home/openstack/cloud_manager", "scripts", "cascading")
@@ -51,6 +53,7 @@ class Cascading(object):
     ADD_VPN_ROUTE_SCRIPT = "add_vpn_route.sh"
     # ADD_HOST_ADDRESS_SCRIPT = "add_host_address.sh"
     KEYSTONE_ENDPOINT_SCRIPT = "keystone_endpoint_create.sh"
+    ENABLE_OPENSTACK_SERVICE = "enable_openstack_service.sh"
 
 
 class PatchesConstant(object):
@@ -60,10 +63,10 @@ class PatchesConstant(object):
     REMOTE_SCRIPTS_DIR = "/root/cloud_manager/patches/"
     CONFIG_PATCHES_SCRIPT = "config_patches_tool_config.sh"
     CONFIG_AWS_SCRIPT = "config_aws.sh"
-    cCONFIG_ROUTE_SCRIPT = "config_add_route.sh"
+    CONFIG_ROUTE_SCRIPT = "config_add_route.sh"
 
 
-class RemoteConstant(object):
+class RemoveConstant(object):
     # SCRIPTS_DIR = os.path.join(os.path.abspath('.'), "scripts", "remove")
     # SCRIPTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts", "remove")
     SCRIPTS_DIR = os.path.join("/home/openstack/cloud_manager", "scripts", "remove")
@@ -71,3 +74,5 @@ class RemoteConstant(object):
     REMOVE_KEYSTONE_SCRIPT = "remove_keystone_endpoint.sh"
     REMOVE_PROXY_SCRIPT = "remove_proxy_host.sh"
     REMOVE_AGGREGATE_SCRIPT = "remove_aggregate.sh"
+    REMOVE_CINDER_SERVICE_SCRIPT = "remove_cinder_service.sh"
+    REMOVE_NEUTRON_AGENT_SCRIPT = "remove_neutron_agent.sh"

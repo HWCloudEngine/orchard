@@ -26,7 +26,7 @@ class data_handler(object):
         self._lock.release()
 
     def data_init(self):
-        init_data={"sg_id":None, "network":{"vpc_id":None, "debug_subnetid":None, "base_subnetid":None, "api_subnetid":None, "tunnel_subnetid":None, "gateway_id":None}, "cascaded":{"cascaded_vm_id":None, "cascaded_eip_public_ip":None, "cascaded_eip_allocation_id":None}, "vpn_api":{"vpn_api_vm_id":None, "vpn_api_eip_public_ip":None, "vpn_api_eip_allocation_id":None, "vpn_api_interface_id":None}, "vpn_tunnel":{"vpn_tunnel_vm_id":None, "vpn_tunnel_eip_public_ip":None, "vpn_tunnel_eip_allocation_id":None, "vpn_tunnel_interface_id":None}}
+        init_data={"sg_id":None, "v2v_id":None, "network":{"vpc_id":None, "debug_subnetid":None, "base_subnetid":None, "api_subnetid":None, "tunnel_subnetid":None, "gateway_id":None}, "cascaded":{"cascaded_vm_id":None, "cascaded_eip_public_ip":None, "cascaded_eip_allocation_id":None}, "vpn_api":{"vpn_api_vm_id":None, "vpn_api_eip_public_ip":None, "vpn_api_eip_allocation_id":None, "vpn_api_interface_id":None}, "vpn_tunnel":{"vpn_tunnel_vm_id":None, "vpn_tunnel_eip_public_ip":None, "vpn_tunnel_eip_allocation_id":None, "vpn_tunnel_interface_id":None}}
         return init_data
 
     def get_all(self):
@@ -128,5 +128,22 @@ class data_handler(object):
         else:
             cascaded_info.pop(key)
         
+        with open(self.file, 'w+') as fd:
+            fd.write(json.dumps(cascaded_info))
+
+    def get_v2v_id(self, key):
+        cascaded_info=self.get_all()
+        if not cascaded_info.has_key(key):
+            return None
+        if not cascaded_info[key].has_key("v2v_id"):
+            return None
+        return cascaded_info[key]["v2v_id"]
+
+    def write_v2v_id(self, key, v2v_id):
+        cascaded_info=self.get_all()
+        if not cascaded_info.has_key(key):
+            cascaded_info[key]=self.data_init()
+        cascaded_info[key]["v2v_id"]=v2v_id
+
         with open(self.file, 'w+') as fd:
             fd.write(json.dumps(cascaded_info))

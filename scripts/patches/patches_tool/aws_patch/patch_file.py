@@ -7,6 +7,7 @@ import sys
 import os
 import json
 import socket
+import time
 from oslo.config import cfg
 import traceback
 
@@ -90,6 +91,27 @@ vtepdriver = [
            help='a network name which is used for data tunnel on aws.'),
 ]
 
+hypernode_api = [
+    cfg.StrOpt('rabbit_userid', default='rabbit'),
+    cfg.StrOpt('rabbit_password_public', default='FusionSphere123'),
+    cfg.StrOpt('cidr_vms', default='172.29.124.0/24'),
+    cfg.StrOpt('cidr_hns', default='172.29.252.0/24'),
+    cfg.StrOpt('subnet_tunnel_bearing', default=''),
+    cfg.StrOpt('subnet_internal_base', default=''),
+    cfg.StrOpt('hn_image_id', default='ami-0ec8c913'),
+    cfg.StrOpt('hn_flavor', default='c4.large'),
+    cfg.StrOpt('hypernode_name', default='06a87ef2c5f3'),
+    cfg.StrOpt('vpc_id', default='vpc-78ae0011'),
+    cfg.StrOpt('my_ip', default='172.29.124.12'),
+    cfg.StrOpt('ip_vpngw', default='172.29.0.1')
+]
+
+keystone_authtoken = [
+    cfg.StrOpt('tenant_name', default='admin'),
+    cfg.StrOpt('user_name', default='cloud_admin'),
+    cfg.StrOpt('keystone_auth_url', default='https://identity.cloud.hybrid.huawei.com:443/identity-admin/v2.0')
+]
+
 CONF = cfg.CONF
 group_provider_opts = cfg.OptGroup(name='provider_opts', title='provider opts')
 group_vtepdriver = cfg.OptGroup(name='vtepdriver', title='vtep')
@@ -98,8 +120,17 @@ CONF.register_group(group_vtepdriver)
 CONF.register_opts(provider_opts, group_provider_opts)
 CONF.register_opts(vtepdriver, group_vtepdriver)
 
+group_hypernode_api = cfg.OptGroup(name='hypernode_api', title='hypernode_api')
+CONF.register_group(group_hypernode_api)
+CONF.register_opts(hypernode_api, group_hypernode_api)
+
+group_keystone_authtoken = cfg.OptGroup(name='keystone_authtoken', title='keystone_authtoken')
+CONF.register_group(group_keystone_authtoken)
+CONF.register_opts(keystone_authtoken, group_keystone_authtoken)
+
 aws_config_ini = os.path.join(CURRENT_PATH, 'aws_config.ini')
 CONF(['--config-file=%s' % aws_config_ini])
+
 
 def restart_component(service_name, template_name):
     """Stop an component, then start it."""
@@ -164,6 +195,12 @@ def replace_cinder_volume_config(conf_file_path):
         content['cinder.conf']['DEFAULT']['secret_key'] = CONF.provider_opts.secret_key
         content['cinder.conf']['DEFAULT']['cgw_username'] = CONF.provider_opts.cgw_user_name
         content['cinder.conf']['DEFAULT']['cgw_host_id'] = CONF.provider_opts.cgw_host_id
+
+        # add
+        content['cinder.conf']['keystone_authtoken']['tenant_name'] = CONF.keystone_authtoken.tenant_name
+        content['cinder.conf']['keystone_authtoken']['user_name'] = CONF.keystone_authtoken.user_name
+        content['cinder.conf']['keystone_authtoken']['keystone_auth_url'] = CONF.keystone_authtoken.keystone_auth_url
+
         fp.truncate(0)
         fp.write(json.dumps(content, indent=4))
 
@@ -172,7 +209,15 @@ def replace_all_config():
     """Replace vcloud info for nova-compute and cinder-volume"""
 
     aws_conf = construct_aws_conf()
-    api_netid, tunnel_netid = get_api_tunnel_netid()
+
+    for i in range(50):
+        try:
+            api_netid, tunnel_netid = get_api_tunnel_netid()
+            break
+        except Exception as e:
+            LOG.error("get api tunnel netid error, try again.")
+            time.sleep(6)
+
     aws_conf['vtepdriver'][PROVIDER_API_NETWORK] = api_netid
     aws_conf['vtepdriver'][PROVIDER_TUNNEL_NETWORK] = tunnel_netid
 
@@ -206,8 +251,15 @@ def construct_aws_conf():
     vtepdriver_data = {}
     for o in CONF.vtepdriver:
          vtepdriver_data[o] = str(eval("CONF.vtepdriver.%s" % o))
-    return {"provider_opts": provider_opts_data, "vtepdriver": vtepdriver_data}
 
+    hypernode_api_data = {}
+    for o in CONF.hypernode_api:
+         hypernode_api_data[o] = str(eval("CONF.hypernode_api.%s" % o))
+
+    # return {"provider_opts": provider_opts_data, "vtepdriver": vtepdriver_data, "hypernode_api": hypernode_api_data}
+    # add by q00222219 to shielde less agent -- start
+    return {"provider_opts": provider_opts_data, "vtepdriver": vtepdriver_data}
+    # add by q00222219 to shielde less agent -- end
 
 def get_networkid_by_name(networks_data, name):
     if isinstance(networks_data, dict):
@@ -260,17 +312,16 @@ if __name__ == '__main__':
     LOG.info('START to patch for aws...')
     config.export_region()
 
-
     try:
         replace_all_config()
-    except Exception, e:
+    except Exception as e:
         LOG.error('Excepton when replace_all_config, Exception: %s' % traceback.format_exc())
 
     LOG.info('Start to patch for hybrid-cloud files')
     try:
         patch_hybridcloud_files()
-    except Exception, e:
-        LOG.error('Excepton when patch for hybrid-cloud files, Exception: %s' % traceback.format_exc())
+    except Exception as e:
+        LOG.error('Excepton when patch for hybrid-cloud files, Exception: %s' % e.message)
 
     try:
         LOG.info('Start to create ag in aws node.')

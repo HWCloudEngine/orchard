@@ -13,6 +13,9 @@ cascaded_installer__opts = [
     cfg.StrOpt("cascaded_vm_type", default=""),
     cfg.StrOpt("vpn_image", default=""),
     cfg.StrOpt("vpn_vm_type", default=""),
+    cfg.StrOpt("hynode_image", default=""),
+    cfg.StrOpt("v2v_image", default=""),
+    cfg.StrOpt("v2v_vm_type", default=""),
 ]
 CONF.register_group(cascaded_installer_group)
 CONF.register_opts(cascaded_installer__opts, cascaded_installer_group)
@@ -30,6 +33,10 @@ class aws_cascaded_installer(object):
         self.cascaded_vm_type=CONF.CASCADED_INSTALLER.cascaded_vm_type
         self.vpn_image=CONF.CASCADED_INSTALLER.vpn_image
         self.vpn_vm_type=CONF.CASCADED_INSTALLER.vpn_vm_type
+        self.hynode_image=CONF.CASCADED_INSTALLER.hynode_image
+        self.hynode_image_id=None
+        self.v2v_image=CONF.CASCADED_INSTALLER.v2v_image
+        self.v2v_vm_type=CONF.CASCADED_INSTALLER.v2v_vm_type
 
         self.vpc_id=None
         self.debug_subnetid=None
@@ -42,6 +49,8 @@ class aws_cascaded_installer(object):
         self.cascaded_vm_id=None
         self.cascaded_eip_public_ip=None
         self.cascaded_eip_allocation_id=None
+       
+        self.v2v_vm_id=None
 
         self.vpn_api_vm=None
         self.vpn_api_vm_id=None
@@ -88,6 +97,7 @@ class aws_cascaded_installer(object):
             self.vpn_tunnel_interface_id=vpn_tunnel["interface_id"]
 
         self.sg_id=self.data.get_sg_id(data_key)
+        self.v2v_vm_id=self.data.get_v2v_id(data_key)
         
         self.installer=vm_installer_aws.aws_installer(access_key_id, secret_key_id, region, az)
 
@@ -102,6 +112,7 @@ class aws_cascaded_installer(object):
         ip_list=api_cidr_block.split(".")
         self.cascaded_api_ip=ip_list[0]+"."+ip_list[1]+"."+ip_list[2]+"."+"150"
         self.vpn_api_ip=ip_list[0]+"."+ip_list[1]+"."+ip_list[2]+"."+"254"
+        self.v2v_ip=ip_list[0]+"."+ip_list[1]+"."+ip_list[2]+"."+"253"
         ip_list=tunnel_cidr_block.split(".")
         self.cascaded_tunnel_ip=ip_list[0]+"."+ip_list[1]+"."+ip_list[2]+"."+"12"
         self.vpn_tunnel_ip=ip_list[0]+"."+ip_list[1]+"."+ip_list[2]+"."+"254"
@@ -129,6 +140,7 @@ class aws_cascaded_installer(object):
         self.cascaded_base_en=vm_installer_aws.aws_interface(self.base_subnetid, self.cascaded_base_ip)
         self.cascaded_api_en=vm_installer_aws.aws_interface(self.api_subnetid, self.cascaded_api_ip)
         self.cascaded_tunnel_en=vm_installer_aws.aws_interface(self.tunnel_subnetid, self.cascaded_tunnel_ip)
+        self.cascaded_v2v_en=vm_installer_aws.aws_interface(self.api_subnetid, self.v2v_ip)
         en_list=[]
         en_list.append(self.cascaded_debug_en)
         en_list.append(self.cascaded_base_en)
@@ -139,6 +151,7 @@ class aws_cascaded_installer(object):
 
         self.vpn_api_en=vm_installer_aws.aws_interface(self.api_subnetid, self.vpn_api_ip)
         self.vpn_tunnel_en=vm_installer_aws.aws_interface(self.tunnel_subnetid, self.vpn_tunnel_ip)
+        self.v2v_en=vm_installer_aws.aws_interface(self.api_subnetid, self.v2v_ip)
 
         en_list_api=[]
         en_list_api.append(self.vpn_api_en)
@@ -149,6 +162,12 @@ class aws_cascaded_installer(object):
         en_list_tunnel.append(self.vpn_tunnel_en)
         self.vpn_tunnel_vm=self.installer.create_vm(self.vpn_image, self.vpn_vm_type, en_list_tunnel)
         self.vpn_tunnel_vm_id=self.vpn_tunnel_vm.id
+
+        if self.v2v_image != "":
+            en_list_v2v=[]
+            en_list_v2v.append(self.cascaded_v2v_en)
+            self.v2v_vm=self.installer.create_vm(self.v2v_image, self.v2v_vm_type, en_list_v2v)
+            self.v2v_vm_id=self.v2v_vm.id
 
         dev_no=0
         for dev_no in range(4):
@@ -183,12 +202,15 @@ class aws_cascaded_installer(object):
         """
         self.installer.create_route(self.rtb_id, "0.0.0.0/0", gateway_id=self.gateway_id)
 
+        self.hynode_image_id=self.installer.get_image_id(self.hynode_image)
+
         data_key=self.get_key()
         self.data.write_cascaded(data_key, self.cascaded_vm_id, self.cascaded_eip_public_ip, self.cascaded_eip_allocation_id)
 
         self.data.write_vpn_api(data_key, self.vpn_api_vm_id, self.vpn_api_eip_public_ip, self.vpn_api_eip_allocation_id, self.vpn_api_interface_id)
         self.data.write_vpn_tunnel(data_key, self.vpn_tunnel_vm_id, self.vpn_tunnel_eip_public_ip, self.vpn_tunnel_eip_allocation_id, self.vpn_tunnel_interface_id)
         #self.data.write_sg_id(data_key, self.sg_id)
+        self.data.write_v2v_id(data_key, self.v2v_vm_id)
 
     def vpn_install(self):
         self.vpn_api_en=vm_installer_aws.aws_interface(self.api_subnetid, "172.29.0.150")
@@ -247,6 +269,10 @@ class aws_cascaded_installer(object):
             self.installer.terminate_instance(self.vpn_tunnel_vm_id)
             self.vpn_tunnel_vm_id=None
 
+        if self.v2v_vm_id is not None:
+            self.installer.terminate_instance(self.v2v_vm_id)
+            self.v2v_vm_id=None
+
         if self.gateway_id is not None:
             self.installer.detach_internet_gateway(self.gateway_id, self.vpc_id)
             self.installer.delete_internet_gateway(self.gateway_id)
@@ -279,7 +305,11 @@ class aws_cascaded_installer(object):
     def add_security(self, cidr):
         sel=self.installer.get_all_security_groups(self.vpc_id)
         sel[0].authorize(ip_protocol="-1", cidr_ip=cidr)
-        
+    
+    def remove_security(self, cidr):
+        sel=self.installer.get_all_security_groups(self.vpc_id)
+        sel[0].revoke(ip_protocol="-1", cidr_ip=cidr)
+    
 
 #    cascaded_openstack=[{"vmid":"", "base_ip":"", "tunnel_ip":"", "api_ip":""}]
 #    cascaded_apivpn={"vmid":"", "private_ip":"", "public_ip":""}
@@ -301,7 +331,10 @@ def aws_cascaded_intall(region, az, access_key_id, secret_key, vpc_cidr="172.29.
         info["cascaded_openstack"]={"vm_id":installer.cascaded_vm_id, "base_ip":installer.cascaded_base_ip, "api_ip":installer.cascaded_api_ip, "tunnel_ip":installer.cascaded_tunnel_ip}
         info["cascaded_apivpn"]={"vm_id":installer.vpn_api_vm_id, "private_ip":installer.vpn_api_ip, "public_ip":installer.vpn_api_eip_public_ip}
         info["cascaded_tunnelvpn"]={"vm_id":installer.vpn_tunnel_vm_id, "private_ip":installer.vpn_tunnel_ip, "public_ip":installer.vpn_tunnel_eip_public_ip}
-        info["subnet_info"]={"api_subnet":installer.api_subnetid, "tunnel_subnet":installer.tunnel_subnetid}
+        info["v2v_gateway"]={"vm_id":installer.v2v_vm_id, "private_ip":installer.v2v_ip}
+        info["subnet_info"]={"api_subnet":installer.api_subnetid, "tunnel_subnet":installer.tunnel_subnetid, "base_subnet": installer.base_subnetid}
+        info["hynode_ami_id"]=installer.hynode_image_id
+        info["vpc_id"]=installer.vpc_id
         return info
     except:
         if installer is not None:
@@ -317,17 +350,14 @@ def aws_cascaded_uninstall(region, az, access_key_id, secret_key):
             installer.rollback()
 
 def aws_cascaded_add_route(region, az, access_key_id, secret_key, type="tunnel", cidr="172.28.48.0/20"):
-    try:
-        installer=aws_cascaded_installer(access_key_id, secret_key, region, az)
-        installer.add_route(type, cidr)
-    except:
-        if installer is not None:
-            installer.rollback()
+    installer=aws_cascaded_installer(access_key_id, secret_key, region, az)
+    installer.add_route(type, cidr)
 
 def aws_cascaded_add_security(region, az, access_key_id, secret_key, cidr="205.177.226.131/32"):
-    try:
-        installer=aws_cascaded_installer(access_key_id, secret_key, region, az)
-        installer.add_security(cidr)
-    except:
-        if installer is not None:
-            installer.rollback()
+    installer=aws_cascaded_installer(access_key_id, secret_key, region, az)
+    installer.add_security(cidr)
+
+def aws_cascaded_remove_security(region, az, access_key_id, secret_key, cidr="205.177.226.131/32"):
+    installer=aws_cascaded_installer(access_key_id, secret_key, region, az)
+    installer.remove_security(cidr)
+

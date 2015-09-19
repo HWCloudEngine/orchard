@@ -2,7 +2,7 @@
 #2015.8.18 test ok
 dir=`cd "$(dirname "$0")"; pwd`
 RUN_SCRIPT=${dir}/remove_keystone_endpoint_run.sh
-RUN_LOG=${dir}/remove_keystone_endpoint_run.LOG
+RUN_LOG=${dir}/remove_keystone_endpoint_run.log
 
 az=${1}
 az=${az%%".huawei.com"}

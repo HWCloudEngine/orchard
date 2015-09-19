@@ -16,9 +16,9 @@ class DispatchPatchTool(object):
         self.filter_for_dispatch = ['.tar.gz']
         self.cps_service_business = CPSServiceBusiness()
 
-        self.aws_cascaded_node_hosts = self.cps_service_business.get_aws_node_hosts()
-        self.vcloud_cascaded_node_hosts = self.cps_service_business.get_vcloud_node_hosts()
-        self.openstack_cascaded_node_hosts = self.cps_service_business.get_openstack_hosts()
+        self.aws_cascaded_node_hosts = self.cps_service_business.get_aws_node_hosts(proxy_match_region=proxy_match_region)
+        self.vcloud_cascaded_node_hosts = self.cps_service_business.get_vcloud_node_hosts(proxy_match_region=proxy_match_region)
+        self.openstack_cascaded_node_hosts = self.cps_service_business.get_openstack_hosts(proxy_match_region=proxy_match_region)
         self.proxy_match_region = proxy_match_region
         log.info('proxy_match_region: %s' % self.proxy_match_region)
         self.proxy_hosts = self.cps_service_business.get_all_proxy_nodes(self.proxy_match_region)
@@ -117,7 +117,8 @@ class DispatchPatchTool(object):
                 continue
             self.dispatch_patches_tool_to_host_with_tar(host_ip, user="root", passwd="cnp200@HW",
                                                         local_full_path_of_tar_file=local_full_path_of_tar_file)
-        self.dispatch_patches_tool_to_proxy_nodes(local_full_path_of_tar_file)
+
+        # self.dispatch_patches_tool_to_proxy_nodes(local_full_path_of_tar_file)
 
         log.info('Finish to dispatch patches_tool to remote nodes ex')
 
@@ -146,7 +147,6 @@ class DispatchPatchTool(object):
 
     def dispatch_patches_tool_to_cascaded_nodes(self, cascaded_domain, local_full_path_of_tar_file):
         log.info('Start to dispatch_patches_tool_to_cascaded_nodes')
-
         region_match_ip = self.cps_service_business.get_region_match_ip()
 
         if cascaded_domain in region_match_ip.keys():
@@ -192,16 +192,19 @@ class DispatchPatchTool(object):
         log.info('Finish to dispatch patches_tool to openstack cascaded nodes')
 
     def remote_patch_for_cascaded_nodes(self):
-        print('Start to patch for vcloud cascaded nodes...')
-        log.info('Start to patch for vcloud cascaded nodes...')
-        self.remote_patch_vcloud_nodes()
+        # print('Start to patch for vcloud cascaded nodes...')
+        # log.info('Start to patch for vcloud cascaded nodes...')
+        # self.remote_patch_vcloud_nodes()
 
-        print('Start to patch for aws cascaded nodes...')
-        log.info('Start to patch for aws cascaded nodes...')
+        # print('Start to patch for aws cascaded nodes...')
+        # log.info('Start to patch for aws cascaded nodes...')
+        log.info('Start to patch for cascaded nodes...')
         self.remote_patch_aws_nodes()
 
     def remote_patch_aws_nodes(self):
         for host in self.aws_cascaded_node_hosts:
+            log.info("remote patch aws nodes %s" % host)
+            print("remote patch aws nodes %s" % host)
             self.remote_patch_aws_node(host)
 
     def remote_patch_vcloud_nodes(self):

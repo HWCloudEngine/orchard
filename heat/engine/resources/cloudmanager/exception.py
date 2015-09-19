@@ -50,15 +50,15 @@ class CloudManagerException(Exception):
 
 
 class ReadEnvironmentInfoFailure(CloudManagerException):
-    msg_fmt = "Failed to read environment info : %(reason)s"
+    msg_fmt = "failed to read environment info : %(reason)s"
 
 
 class ReadProxyDataFailure(CloudManagerException):
-    msg_fmt = "Failed to read proxy data : %(reason)s"
+    msg_fmt = "failed to read proxy data : %(reason)s"
 
 
 class SSHCommandFailure(CloudManagerException):
-    msg_fmt = "Failed to execute ssh command : host=%(host)s, command=%(command)s, reason=%(reason)s"
+    msg_fmt = "failed to execute ssh command : host=%(host)s, command=%(command)s, reason=%(reason)s"
 
 
 class ScpFileToHostFailure(CloudManagerException):
@@ -67,32 +67,32 @@ class ScpFileToHostFailure(CloudManagerException):
 
 
 class PersistCloudInfoFailure(CloudManagerException):
-    msg_fmt = "Failed to Persist cloud info : %(reason)s"
+    msg_fmt = "failed to Persist cloud info : %(reason)s"
 
 
 class ReadCloudInfoFailure(CloudManagerException):
-    msg_fmt = "Failed to read cloud info : %(reason)s"
+    msg_fmt = "failed to read cloud info : %(reason)s"
 
 
 class InstallCascadedHostFailure(CloudManagerException):
-    msg_fmt = "Failed to install cascaded host : %(reason)s"
+    msg_fmt = "failed to install cascaded host : %(reason)s"
 
 class InstallCascadedFailure(CloudManagerException):
-    msg_fmt = "Failed to install cascaded basic environment : %(reason)s"
+    msg_fmt = "failed to install cascaded basic environment : %(reason)s"
 
 
 class UninstallCascadedFailure(CloudManagerException):
-    msg_fmt = "Failed to uninstall cascaded basic environment : %(reason)s"
+    msg_fmt = "failed to uninstall cascaded basic environment : %(reason)s"
 
 
-class ConfigVPNFailure(CloudManagerException):
-    msg_fmt = "Failed to config vpn : %(reason)s"
+class CheckHostStatusFailure(CloudManagerException):
+    msg_fmt = "failed to check host status : %(reason)s"
 
 
 class ConfigCascadedHostFailure(CloudManagerException):
-    msg_fmt = "Failed to config cascaded host : %(reason)s"
+    msg_fmt = "failed to config cascaded host : %(reason)s"
 
 
 class ConfigProxyFailure(CloudManagerException):
-    msg_fmt = "Failed to config proxy : %(reason)s"
+    msg_fmt = "failed to config proxy : %(reason)s"
 
