@@ -66,7 +66,7 @@ class ExecuteStack(object):
 def update_ceilometer_agent_central_domain(cascading_domain, cascaded_domain):
     service = "ceilometer"
     template = "ceilometer-agent-central"
-    cascaded_region = __get_cascaded_region_form_cascaded_domain__(cascaded_domain)
+    cascaded_region = _get_cascaded_region_form_cascaded_domain(cascaded_domain)
     updated_params = {
         "auth_host": "identity.%s" % cascading_domain,
         "os_auth_url": "https://identity.%s:443/identity-admin/v2.0" % cascading_domain,
@@ -78,7 +78,7 @@ def update_ceilometer_agent_central_domain(cascading_domain, cascaded_domain):
 def update_ceilometer_agent_compute_domain(cascading_domain, cascaded_domain):
     service = "ceilometer"
     template = "ceilometer-agent-compute"
-    cascaded_region = __get_cascaded_region_form_cascaded_domain__(cascaded_domain)
+    cascaded_region = _get_cascaded_region_form_cascaded_domain(cascaded_domain)
     updated_params = {
         "auth_host": "identity.%s" % cascading_domain,
         "os_auth_url": "https://identity.%s:443/identity-admin/v2.0" % cascading_domain,
@@ -90,7 +90,7 @@ def update_ceilometer_agent_compute_domain(cascading_domain, cascaded_domain):
 def update_ceilometer_agent_notification_domain(cascading_domain, cascaded_domain):
     service = "ceilometer"
     template = "ceilometer-agent-notification"
-    cascaded_region = __get_cascaded_region_form_cascaded_domain__(cascaded_domain)
+    cascaded_region = _get_cascaded_region_form_cascaded_domain(cascaded_domain)
     updated_params = {
         "auth_host": "identity.%s" % cascading_domain,
         "os_auth_url": "https://identity.%s:443/identity-admin/v2.0" % cascading_domain,
@@ -112,7 +112,7 @@ def update_ceilometer_agent_hardware_domain(cascading_domain):
 def update_ceilometer_alarm_evaluator_domain(cascading_domain, cascaded_domain):
     service = "ceilometer"
     template = "ceilometer-alarm-evaluator"
-    cascaded_region = __get_cascaded_region_form_cascaded_domain__(cascaded_domain)
+    cascaded_region = _get_cascaded_region_form_cascaded_domain(cascaded_domain)
     updated_params = {
         "auth_host": "identity.%s" % cascading_domain,
         "os_auth_url": "https://identity.%s:443/identity-admin/v2.0" % cascading_domain,
@@ -124,7 +124,7 @@ def update_ceilometer_alarm_evaluator_domain(cascading_domain, cascaded_domain):
 def update_ceilometer_alarm_fault_domain(cascading_domain, cascaded_domain):
     service = "ceilometer"
     template = "ceilometer-alarm-fault"
-    cascaded_region = __get_cascaded_region_form_cascaded_domain__(cascaded_domain)
+    cascaded_region = _get_cascaded_region_form_cascaded_domain(cascaded_domain)
     updated_params = {
         "auth_host": "identity.%s" % cascading_domain,
         "os_auth_url": "https://identity.%s:443/identity-admin/v2.0" % cascading_domain,
@@ -166,7 +166,7 @@ def update_ceilometer_collector_domain(cascading_domain):
 def update_cinder_api_domain(cascading_domain, cascaded_domain):
     service = "cinder"
     template = "cinder-api"
-    cascaded_region = __get_cascaded_region_form_cascaded_domain__(cascaded_domain)
+    cascaded_region = _get_cascaded_region_form_cascaded_domain(cascaded_domain)
     updated_params = {
         "auth_host": "identity.%s" % cascading_domain,
         "glance_host": "https://image.%s" % cascading_domain,
@@ -178,7 +178,7 @@ def update_cinder_api_domain(cascading_domain, cascaded_domain):
 def update_cinder_backup_domain(cascading_domain, cascaded_domain):
     service = "cinder"
     template = "cinder-backup"
-    cascaded_region = __get_cascaded_region_form_cascaded_domain__(cascaded_domain)
+    cascaded_region = _get_cascaded_region_form_cascaded_domain(cascaded_domain)
     updated_params = {
         "glance_host": "https://image.%s" % cascading_domain,
         "storage_availability_zone": cascaded_region
@@ -189,7 +189,7 @@ def update_cinder_backup_domain(cascading_domain, cascaded_domain):
 def update_cinder_scheduler_domain(cascading_domain, cascaded_domain):
     service = "cinder"
     template = "cinder-scheduler"
-    cascaded_region = __get_cascaded_region_form_cascaded_domain__(cascaded_domain)
+    cascaded_region = _get_cascaded_region_form_cascaded_domain(cascaded_domain)
     updated_params = {
         "glance_host": "https://image.%s" % cascading_domain,
         "storage_availability_zone": cascaded_region
@@ -200,7 +200,7 @@ def update_cinder_scheduler_domain(cascading_domain, cascaded_domain):
 def update_cinder_volume_domain(cascading_domain, cascaded_domain):
     service = "cinder"
     template = "cinder-volume"
-    cascaded_region = __get_cascaded_region_form_cascaded_domain__(cascaded_domain)
+    cascaded_region = _get_cascaded_region_form_cascaded_domain(cascaded_domain)
     updated_params = {
         "glance_host": "https://image.%s" % cascading_domain,
         "storage_availability_zone": cascaded_region
@@ -251,7 +251,7 @@ def update_cps_server_domain(cascading_domain):
 def update_network_client_domain(cascading_domain, cascaded_domain, gateway):
     service = "cps"
     template = "network-client"
-    cascaded_region = __get_cascaded_region_form_cascaded_domain__(cascaded_domain)
+    cascaded_region = _get_cascaded_region_form_cascaded_domain(cascaded_domain)
     updated_params = {
         "auth_host": "identity.%s" % cascading_domain,
         "os_auth_url": "https://identity.%s:443/identity-admin/v2.0" % cascading_domain,
@@ -264,7 +264,7 @@ def update_network_client_domain(cascading_domain, cascaded_domain, gateway):
 def update_network_server_domain(cascading_domain, cascaded_domain):
     service = "cps"
     template = "network-server"
-    cascaded_region = __get_cascaded_region_form_cascaded_domain__(cascaded_domain)
+    cascaded_region = _get_cascaded_region_form_cascaded_domain(cascaded_domain)
     updated_params = {
         "auth_host": "identity.%s" % cascading_domain,
         "os_auth_url": "https://identity.%s:443/identity-admin/v2.0" % cascading_domain,
@@ -276,7 +276,7 @@ def update_network_server_domain(cascading_domain, cascaded_domain):
 def update_cps_web_domain(cascading_domain, cascaded_domain):
     service = "cps"
     template = "cps-web"
-    cascaded_region = __get_cascaded_region_form_cascaded_domain__(cascaded_domain)
+    cascaded_region = _get_cascaded_region_form_cascaded_domain(cascaded_domain)
     updated_params = {
         "glance_domain": "https://image.%s:443" % cascading_domain,
         "keystone_domain": "https://identity.%s:443" % cascading_domain,
@@ -384,7 +384,7 @@ def update_neutron_reschedule_domain(cascading_domain):
 def update_neutron_metadata_agent_domain(cascading_domain, cascaded_domain):
     service = "neutron"
     template = "neutron-metadata-agent"
-    cascaded_region = __get_cascaded_region_form_cascaded_domain__(cascaded_domain)
+    cascaded_region = _get_cascaded_region_form_cascaded_domain(cascaded_domain)
     updated_params = {
         "auth_url": "https://identity.%s:443/identity-admin/v2.0" % cascading_domain,
         "os_region_name": cascaded_region
@@ -395,7 +395,7 @@ def update_neutron_metadata_agent_domain(cascading_domain, cascaded_domain):
 def update_neutron_server_domain(cascading_domain, cascaded_domain):
     service = "neutron"
     template = "neutron-server"
-    cascaded_region = __get_cascaded_region_form_cascaded_domain__(cascaded_domain)
+    cascaded_region = _get_cascaded_region_form_cascaded_domain(cascaded_domain)
     updated_params = {
         "auth_host": "identity.%s" % cascading_domain,
         "nova_admin_auth_url": "https://identity.%s:443/identity-admin/v2.0" % cascading_domain
@@ -406,7 +406,7 @@ def update_neutron_server_domain(cascading_domain, cascaded_domain):
 def update_nova_api_domain(cascading_domain, cascaded_domain):
     service = "nova"
     template = "nova-api"
-    cascaded_region = __get_cascaded_region_form_cascaded_domain__(cascaded_domain)
+    cascaded_region = _get_cascaded_region_form_cascaded_domain(cascaded_domain)
     updated_params = {
         "auth_host": "identity.%s" % cascading_domain,
         "default_availability_zone": cascaded_region,
@@ -422,7 +422,7 @@ def update_nova_api_domain(cascading_domain, cascaded_domain):
 def update_nova_compute_domain(cascading_domain, cascaded_domain):
     service = "nova"
     template = "nova-compute"
-    cascaded_region = __get_cascaded_region_form_cascaded_domain__(cascaded_domain)
+    cascaded_region = _get_cascaded_region_form_cascaded_domain(cascaded_domain)
     updated_params = {
         "default_availability_zone": cascaded_region,
         "glance_host": "https://image.%s" % cascading_domain,
@@ -448,7 +448,7 @@ def update_nova_conductor_domain(cascading_domain, cascaded_domain):
 def update_nova_novncproxy_domain(cascading_domain, cascaded_domain):
     service = "nova"
     template = "nova-novncproxy"
-    cascaded_region = __get_cascaded_region_form_cascaded_domain__(cascaded_domain)
+    cascaded_region = _get_cascaded_region_form_cascaded_domain(cascaded_domain)
     updated_params = {
         "glance_host": "https://image.%s" % cascading_domain,
         "neutron_admin_auth_url": "https://identity.%s:443/identity-admin/v2.0"
@@ -462,7 +462,7 @@ def update_nova_novncproxy_domain(cascading_domain, cascaded_domain):
 def update_nova_scheduler_domain(cascading_domain, cascaded_domain):
     service = "nova"
     template = "nova-scheduler"
-    cascaded_region = __get_cascaded_region_form_cascaded_domain__(cascaded_domain)
+    cascaded_region = _get_cascaded_region_form_cascaded_domain(cascaded_domain)
     updated_params = {
         "default_availability_zone": cascaded_region,
         "glance_host": "https://image.%s"
@@ -529,7 +529,7 @@ def update_upg_server_domain(cascading_domain):
 def update_backup_server_domain(cascading_domain, cascaded_domain):
     service = "backup"
     template = "backup-server"
-    cascaded_region = __get_cascaded_region_form_cascaded_domain__(cascaded_domain)
+    cascaded_region = _get_cascaded_region_form_cascaded_domain(cascaded_domain)
     updated_params = {
         "os_auth_url": "https://identity.%s:443/identity-admin/v2.0"
                        % cascading_domain,
@@ -541,7 +541,7 @@ def update_backup_server_domain(cascading_domain, cascaded_domain):
 def update_backup_client_domain(cascading_domain, cascaded_domain):
     service = "backup"
     template = "backup-client"
-    cascaded_region = __get_cascaded_region_form_cascaded_domain__(cascaded_domain)
+    cascaded_region = _get_cascaded_region_form_cascaded_domain(cascaded_domain)
     updated_params = {
         "os_auth_url": "https://identity.%s:443/identity-admin/v2.0"
                        % cascading_domain,
@@ -575,7 +575,7 @@ def update_nova_compute_ironic_domain(cascading_domain):
 def update_ironic_api_domain(cascading_domain, cascaded_domain):
     service = "ironic"
     template = "ironic-api"
-    cascaded_region = __get_cascaded_region_form_cascaded_domain__(cascaded_domain)
+    cascaded_region = _get_cascaded_region_form_cascaded_domain(cascaded_domain)
     updated_params = {
         "auth_host": "identity.%s" % cascading_domain,
         "glance_host": "https://image.%s" % cascading_domain,
@@ -588,7 +588,7 @@ def update_ironic_api_domain(cascading_domain, cascaded_domain):
 def update_ironic_conductor_domain(cascading_domain, cascaded_domain):
     service = "ironic"
     template = "ironic-conductor"
-    cascaded_region = __get_cascaded_region_form_cascaded_domain__(cascaded_domain)
+    cascaded_region = _get_cascaded_region_form_cascaded_domain(cascaded_domain)
     updated_params = {
         "auth_host": "identity.%s" % cascading_domain,
         "glance_host": "https://image.%s" % cascading_domain,
@@ -662,7 +662,7 @@ def cps_commit():
     return cps_server.cps_commit()
 
 
-def __get_cascaded_region_form_cascaded_domain__(cascaded_domain):
+def _get_cascaded_region_form_cascaded_domain(cascaded_domain):
     arr = cascaded_domain.split(".")
     cascaded_local_az = arr[0]
     cascaded_local_dc = arr[1]

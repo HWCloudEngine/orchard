@@ -927,7 +927,7 @@ class Instance(resource.Resource):
                           "status = %(status)s",
                           {'name': self.name, 'status': server.status})
                 if server.status in list(cp.deferred_server_statuses +
-                                         ['ACTIVE']):
+                                                 ['ACTIVE']):
                     return server.status == 'SUSPENDED'
                 else:
                     raise exception.Error(_(' nova reported unexpected '
@@ -968,15 +968,13 @@ class Instance(resource.Resource):
 
 
 class Cloud(resource.Resource):
-
     PROPERTIES = (
-        CLOUD_TYPE, REGION_NAME, AVAILABILITY_ZONE, AZNAME, ACCESS_KEY, SECRET_KEY,
-        ENABLE_NETWORK_CROSS_CLOUDS
+        CLOUD_TYPE, REGION_NAME, AVAILABILITY_ZONE, AZNAME, ACCESS_KEY,
+        SECRET_KEY, ENABLE_NETWORK_CROSS_CLOUDS, DRIVER_TYPE
     ) = (
-        'CloudType', 'RegionName', 'AvailabilityZone', 'AZName', 'AccessKey', 'SecretKey',
-        'EnableNetworkCrossClouds'
+        'CloudType', 'RegionName', 'AvailabilityZone', 'AZName', 'AccessKey',
+        'SecretKey', 'EnableNetworkCrossClouds', 'DriverType'
     )
-
 
     properties_schema = {
         CLOUD_TYPE: properties.Schema(
@@ -1007,74 +1005,90 @@ class Cloud(resource.Resource):
             properties.Schema.STRING,
             _('Availability zone to launch the instance in.')
         ),
+        DRIVER_TYPE: properties.Schema(
+            properties.Schema.STRING,
+            _('Network driver type, agent or agentless.')
+        )
     }
 
     def __init__(self, name, json_snippet, stack):
-        super(Cloud, self).__init__(name, json_snippet, stack) 
+        super(Cloud, self).__init__(name, json_snippet, stack)
         print "This is for adding clouds"
 
     def handle_create(self):
-        cloud_type=self.properties.get(self.CLOUD_TYPE)
-        access_key_id=self.properties.get(self.ACCESS_KEY)
-        secret_key=self.properties.get(self.SECRET_KEY)
-        region_name=self.properties.get(self.REGION_NAME)
-        az=self.properties.get(self.AVAILABILITY_ZONE)
-	az_alias=self.properties.get(self.AZNAME)
-	access=self.properties.get(self.ENABLE_NETWORK_CROSS_CLOUDS)
+        # import pdb
+        # pdb.set_trace()
+
+        cloud_type = self.properties.get(self.CLOUD_TYPE)
+        access_key_id = self.properties.get(self.ACCESS_KEY)
+        secret_key = self.properties.get(self.SECRET_KEY)
+        region_name = self.properties.get(self.REGION_NAME)
+        az = self.properties.get(self.AVAILABILITY_ZONE)
+        az_alias = self.properties.get(self.AZNAME)
+        access = self.properties.get(self.ENABLE_NETWORK_CROSS_CLOUDS)
 
         __REGION_MAP = {"tokyo": "ap-northeast-1",
-                "singapore": "ap-southeast-1",
-                "sydney": "ap-southeast-2",
-                "ireland": "eu-west-1",
-                "sao-paulo": "sa-east-1",
-                "virginia": "us-east-1",
-                "california": "us-west-1",
-                "oregon": "us-west-2"}
+                        "singapore": "ap-southeast-1",
+                        "sydney": "ap-southeast-2",
+                        "ireland": "eu-west-1",
+                        "sao-paulo": "sa-east-1",
+                        "virginia": "us-east-1",
+                        "california": "us-west-1",
+                        "oregon": "us-west-2"}
         if az is None or az == "":
-            az=__REGION_MAP[region_name.lower()]+"a"
+            az = __REGION_MAP[region_name.lower()] + "b"
 
-        #For HCC show in CI special code --- start
-        temp_az=az_alias.lower()
-        if temp_az == "az31":
-            return
-        #For HCC show in CI special code --- end       
- 
-        cloud_manager=service.CloudManager()
-	cloud_manager.add_remote_cloud(cloud_type=cloud_type, 
+        # For HCC show in CI special code --- start
+        # temp_az=az_alias.lower()
+        # if temp_az == "az31" or temp_az == "az32":
+        #    return
+        # For HCC show in CI special code --- end
+
+        driver_type = self.properties.get(self.DRIVER_TYPE)
+        if driver_type not in ("agent", "agentless"):
+            driver_type = "agentless"
+
+        # pdb.set_trace()
+        cloud_manager = service.CloudManager()
+        cloud_manager.add_remote_cloud(cloud_type=cloud_type,
                                        access_key_id=access_key_id,
                                        secret_key=secret_key,
                                        region_name=region_name,
-				       az=az, 
-                                       az_alias=az_alias, 
-                                       access=access)
-        
+                                       az=az,
+                                       az_alias=az_alias,
+                                       access=access,
+                                       driver_type=driver_type)
+
     def handle_update(self, json_snippet, tmpl_diff, prop_diff):
         pass
 
     def handle_delete(self):
-        #For HCC show in CI special code --- start
-        az_alias=self.properties.get(self.AZNAME)
-        temp_az=az_alias.lower()
-        if temp_az == "az31":
+        # import pdb
+        # pdb.set_trace()
+
+        # For HCC show in CI special code --- start
+        az_alias = self.properties.get(self.AZNAME)
+        temp_az = az_alias.lower()
+        if temp_az == "az31" or temp_az == "az32":
             return
-        #For HCC show in CI special code --- end
-        
+        # For HCC show in CI special code --- end
+
         try:
-            service.CloudManager().delete_aws_cloud(region_name=self.properties.get(self.REGION_NAME),
-					az_alias=self.properties.get(self.AZNAME))
-        except:
+            service.CloudManager().delete_aws_cloud(
+                region_name=self.properties.get(self.REGION_NAME),
+                az_alias=self.properties.get(self.AZNAME))
+        except Exception:
             print "error..."
 
+
 class vCloudCloud(resource.Resource):
-
     PROPERTIES = (
-        CLOUD_TYPE, AZNAME, VCLOUD_URL, VCLOUD_ORG, VCLOUD_VDC, USER_NAME, PASSWD,
-        ENABLE_NETWORK_CROSS_CLOUDS
+        CLOUD_TYPE, AZNAME, VCLOUD_URL, VCLOUD_ORG, VCLOUD_VDC, USER_NAME,
+        PASSWD, ENABLE_NETWORK_CROSS_CLOUDS
     ) = (
-        'CloudType', 'AZName', 'VcloudUrl', 'vCloudOrg', 'VcloudVdc', 'UserName', 'PassWd',
-        'EnableNetworkCrossClouds'
+        'CloudType', 'AZName', 'VcloudUrl', 'vCloudOrg', 'VcloudVdc',
+        'UserName', 'PassWd', 'EnableNetworkCrossClouds'
     )
-
 
     properties_schema = {
         CLOUD_TYPE: properties.Schema(
@@ -1101,14 +1115,14 @@ class vCloudCloud(resource.Resource):
             properties.Schema.STRING,
             _('Availability zone to launch the instance in.')
         ),
-		PASSWD: properties.Schema(
+        PASSWD: properties.Schema(
             properties.Schema.STRING,
             _('Availability zone to launch the instance in.')
         ),
         ENABLE_NETWORK_CROSS_CLOUDS: properties.Schema(
             properties.Schema.STRING,
             _('Availability zone to launch the instance in.')
-        ),
+        )
     }
 
     def __init__(self, name, json_snippet, stack):
@@ -1117,21 +1131,20 @@ class vCloudCloud(resource.Resource):
 
     def handle_create(self):
         print "This is for create vclouds"
-        
+
     def handle_update(self, json_snippet, tmpl_diff, prop_diff):
         print "This is for update vclouds"
 
     def handle_delete(self):
         print "This is for delete vclouds"
 
-class FusionsphereCloud(resource.Resource):
 
+class FusionsphereCloud(resource.Resource):
     PROPERTIES = (
         CLOUD_TYPE, AZNAME, REGION_NAME, IP, ENABLE_NETWORK_CROSS_CLOUDS
     ) = (
         'CloudType', 'AZName', 'RegionName', 'Ip', 'EnableNetworkCrossClouds'
     )
-
 
     properties_schema = {
         CLOUD_TYPE: properties.Schema(
@@ -1153,65 +1166,11 @@ class FusionsphereCloud(resource.Resource):
         ENABLE_NETWORK_CROSS_CLOUDS: properties.Schema(
             properties.Schema.STRING,
             _('Availability zone to launch the instance in.')
-        ),
+        )
     }
 
     def __init__(self, name, json_snippet, stack):
-        super(FusionsphereCloud, self).__init__(name, json_snippet, stack) 
-        print "This is for adding FusionsphereCloud"
-
-    def handle_create(self):
-        pass
-        
-    def handle_update(self, json_snippet, tmpl_diff, prop_diff):
-        pass
-
-    def handle_delete(self):
-        pass
-
-class HWSCloud(resource.Resource):
-    PROPERTIES = (
-        CLOUD_TYPE, REGION_NAME, AVAILABILITY_ZONE, AZNAME, ACCESS_KEY, SECRET_KEY,
-        ENABLE_NETWORK_CROSS_CLOUDS
-    ) = (
-        'CloudType', 'RegionName', 'AvailabilityZone', 'AZName', 'AccessKey', 'SecretKey',
-        'EnableNetworkCrossClouds'
-    )
-
-
-    properties_schema = {
-        CLOUD_TYPE: properties.Schema(
-            properties.Schema.STRING,
-            _('Nova instance type (flavor).')
-        ),
-        REGION_NAME: properties.Schema(
-            properties.Schema.STRING,
-            _('Optional Nova keypair name.')
-        ),
-        AVAILABILITY_ZONE: properties.Schema(
-            properties.Schema.STRING,
-            _('Availability zone to launch the instance in.')
-        ),
-        AZNAME: properties.Schema(
-            properties.Schema.STRING,
-            _('Availability zone to launch the instance in.')
-        ),
-        ACCESS_KEY: properties.Schema(
-            properties.Schema.STRING,
-            _('Availability zone to launch the instance in.')
-        ),
-        SECRET_KEY: properties.Schema(
-            properties.Schema.STRING,
-            _('Availability zone to launch the instance in.')
-        ),
-        ENABLE_NETWORK_CROSS_CLOUDS: properties.Schema(
-            properties.Schema.STRING,
-            _('Availability zone to launch the instance in.')
-        ),
-    }
-
-    def __init__(self, name, json_snippet, stack):
-        super(HWSCloud, self).__init__(name, json_snippet, stack)
+        super(FusionsphereCloud, self).__init__(name, json_snippet, stack)
         print "This is for adding FusionsphereCloud"
 
     def handle_create(self):
@@ -1223,13 +1182,12 @@ class HWSCloud(resource.Resource):
     def handle_delete(self):
         pass
 
-		
+
 def resource_mapping():
     return {
         'AWS::EC2::Instance': Instance,
         'OS::Heat::HARestarter': Restarter,
         'OS::Heat::Cloud': Cloud,
         'OS::Heat::vCloudCloud': vCloudCloud,
-        'OS::Heat::FusionsphereCloud': FusionsphereCloud,
-        'OS::Heat::HWSCloud': HWSCloud,
+        'OS::Heat::FusionsphereCloud': FusionsphereCloud
     }

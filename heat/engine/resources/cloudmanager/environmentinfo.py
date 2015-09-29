@@ -4,19 +4,17 @@ __author__ = 'q00222219@huawei'
 import os
 import json
 
-import log as logger
-
 from exception import *
 
-# CURRENT_PATH = os.path.dirname(os.path.abspath(__file__))
-# data_file = os.path.join(CURRENT_PATH, "data", "environment_info.json")
+env_data_file = os.path.join("/home/openstack/cloud_manager/data",
+                             'environment_info.json')
 
 
 def read_environment_info():
-    env_data_file = os.path.join("/home/openstack/cloud_manager", "data", 'environment_info.json')
     if not os.path.exists(env_data_file):
         logger.error("read %s : No such file." % env_data_file)
-        raise ReadEnvironmentInfoFailure(reason="read %s : No such file." % env_data_file)
+        raise ReadEnvironmentInfoFailure(reason="read %s : No such file."
+                                                % env_data_file)
 
     with open(env_data_file, 'r+') as fd:
         tmp = fd.read()
@@ -24,14 +22,17 @@ def read_environment_info():
 
 
 def write_environment_info():
-    env_data_file = os.path.join("/home/openstack/cloud_manager", "data", 'environment_info.json')
-    environment_info = {"cascading_ip": "",
-                        "cascading_passwd": "",
-                        "cascading_domain": "",
+    environment_info = {"cascading_ip": "162.3.121.2",
+                        "cascading_passwd": "Huawei@CLOUD8!",
+                        "cascading_domain": "cloud.hybrid.huawei.com",
                         "additional_dns": {},
-                        "vpn_ip": "",
-                        "api_public_gw": "", "api_vpn_ip": "", "api_subnet": "",
-                        "tunnel_public_gw": "", "tunnel_vpn_ip": '', "tunnel_subnet": ""}
+                        "vpn_ip": "162.3.131.247",
+                        "api_public_gw": "205.177.226.131",
+                        "api_vpn_ip": "162.3.117.247",
+                        "api_subnet": "162.3.0.0/16",
+                        "tunnel_public_gw": "205.177.226.131",
+                        "tunnel_vpn_ip": '172.28.48.1',
+                        "tunnel_subnet": "172.28.48.0/20"}
 
     with open(env_data_file, 'w+') as fd:
         fd.write(json.dumps(environment_info, indent=4))
@@ -39,7 +40,5 @@ def write_environment_info():
 
 
 if __name__ == '__main__':
-    logger.init('environment_info', output=True)
     write_environment_info()
     info = read_environment_info()
-    logger.info(info)

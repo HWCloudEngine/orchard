@@ -19,6 +19,7 @@ cgw_certificate=/home/cgw.pem
 rabbit_password_public=FusionSphere123
 rabbit_host_ip_public=%openstack_az_host_ip%
 vpn_route_gateway=%vm_route%
+driver_type=%driver_type%
 
 [vtepdriver]
 provider_api_network_name=%api_subnet_id%
@@ -32,7 +33,7 @@ cidr_hns=%cidr_hns%
 subnet_tunnel_bearing=%data_subnet_id%
 subnet_internal_base=%internal_base_subnet_id%
 hn_image_id=%hn_image_id%
-hn_flavor=t2.medium
+hn_flavor=c4.large
 hypernode_name=06a87ef2c5f3
 vpc_id=%vpc_id%
 my_ip=%internal_base_ip%

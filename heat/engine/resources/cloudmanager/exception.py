@@ -30,16 +30,14 @@ class CloudManagerException(Exception):
             try:
                 message = self.msg_fmt % kwargs
 
-            except Exception:
+            except Exception as e:
                 # kwargs doesn't match a variable in the message
                 # log the issue and the kwargs
                 logger.exception('Exception in string format operation')
                 for name, value in kwargs.iteritems():
-                    logger.error("%s: %s" % (name, value))  # noqa
+                    logger.error("%s: %s" % (name, value))
 
-                else:
-                    # at least get the core message out if something happened
-                    message = self.msg_fmt
+                message = self.msg_fmt
 
         super(CloudManagerException, self).__init__(message)
 
@@ -50,39 +48,30 @@ class CloudManagerException(Exception):
 
 
 class ReadEnvironmentInfoFailure(CloudManagerException):
-    msg_fmt = "failed to read environment info : %(reason)s"
+    msg_fmt = "failed to read environment info, error: %(error)s"
 
 
 class ReadProxyDataFailure(CloudManagerException):
-    msg_fmt = "failed to read proxy data : %(reason)s"
+    msg_fmt = "failed to read proxy data, error: %(error)s"
 
 
 class SSHCommandFailure(CloudManagerException):
-    msg_fmt = "failed to execute ssh command : host=%(host)s, command=%(command)s, reason=%(reason)s"
+    msg_fmt = "failed to execute ssh command : " \
+              "host: %(host)s, command: %(command)s, error: %(error)s"
 
 
 class ScpFileToHostFailure(CloudManagerException):
-    msg_fmt = "spc file to host failed, host=%(host)s, file_name=%(file_name)s, " \
-              "local_dir=%(local_dir)s, remote_dir=%(remote_dir)s, reason =%(reason)s"
+    msg_fmt = "spc file to host failed, host: %(host)s," \
+              " file_name: %(file_name)s, local_dir: %(local_dir)s," \
+              " remote_dir: %(remote_dir)s, error: %(error)s"
 
 
 class PersistCloudInfoFailure(CloudManagerException):
-    msg_fmt = "failed to Persist cloud info : %(reason)s"
+    msg_fmt = "failed to Persist cloud info, error: %(error)s"
 
 
 class ReadCloudInfoFailure(CloudManagerException):
-    msg_fmt = "failed to read cloud info : %(reason)s"
-
-
-class InstallCascadedHostFailure(CloudManagerException):
-    msg_fmt = "failed to install cascaded host : %(reason)s"
-
-class InstallCascadedFailure(CloudManagerException):
-    msg_fmt = "failed to install cascaded basic environment : %(reason)s"
-
-
-class UninstallCascadedFailure(CloudManagerException):
-    msg_fmt = "failed to uninstall cascaded basic environment : %(reason)s"
+    msg_fmt = "failed to read cloud info, error: %(error)s"
 
 
 class CheckHostStatusFailure(CloudManagerException):
@@ -96,3 +85,6 @@ class ConfigCascadedHostFailure(CloudManagerException):
 class ConfigProxyFailure(CloudManagerException):
     msg_fmt = "failed to config proxy : %(reason)s"
 
+if __name__ == '__main__':
+    e = ReadEnvironmentInfoFailure(error="test")
+    print e

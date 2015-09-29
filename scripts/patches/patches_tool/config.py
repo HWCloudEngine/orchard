@@ -191,6 +191,7 @@ class ConfigCascading(object):
             self.__config_for_neutron_l2_proxy__(proxy)
             self.__config_for_neutron_l3_proxy__(proxy)
             self.__config_cinder_proxy__(proxy)
+            self.__config_cinder_backup_proxy__(proxy)
             log.info('finish to config cascading connection for proxy: %s' % proxy)
 
     def config_big_l2_layer_in_proxy_node(self):
@@ -493,6 +494,23 @@ class ConfigCascading(object):
             # 'cinder_tenant_id': cinder_tenant_id,
             'host': proxy_matched_host_region_name,
             'keystone_auth_url': 'https://identity.%s:443/identity/v2.0' % self.cascading_region,
+            'storage_availability_zone': proxy_matched_host_region_name}
+
+        return self.__update_template_params_for_proxy__(service, template, updated_params)
+
+    def __config_cinder_backup_proxy__(self, proxy_name):
+        log.info("config cinder backup proxy...")
+        service = 'cinder'
+        template = '-'.join([service, "backup", proxy_name])
+        proxy_matched_region = self.proxy_match_region.get(proxy_name)
+        proxy_matched_host_region_name = self._get_proxy_region_and_host_region_name(proxy_matched_region)
+
+        updated_params = {
+            'keystone_auth_url': 'https://identity.%s:443/identity/v2.0' % self.cascading_region,
+            'glance_host': 'https://image.%s' % self.cascading_region,
+            'host': proxy_matched_host_region_name,
+            'cascaded_cinder_url': ''.join(['https://volume.%s:443' % proxy_matched_region, '/v2/%(project_id)s']),
+            'cascaded_region_name': proxy_matched_host_region_name,
             'storage_availability_zone': proxy_matched_host_region_name}
 
         return self.__update_template_params_for_proxy__(service, template, updated_params)

@@ -4,7 +4,7 @@
             "allowed_direct_url_schemes": "uds, uds+https, swift, swift+https",
             "auth_strategy": "keystone",
             "backup_api_class": "cinder.backup.api.API",
-            "backup_driver": "cinder.backup.drivers.swift",
+            "backup_driver": "cinder.backup.drivers.ceph",
             "backup_manager": "cinder.backup.manager.BackupManager",
             "backup_name_template": "backup-%s",
             "debug": "true",
@@ -38,17 +38,7 @@
             "max_overflow":"50",
             "rpc_thread_pool_size":"128",
             "rpc_conn_pool_size":"60",
-            "rpc_response_timeout":"120",
-            "storage_tmp_dir":"hybridbucket",
-            "availability_zone":"ap-southeast-1a",
-            "cgw_host_ip":"52.74.155.248",
-            "region":"ap-southeast-1",
-            "provider_image_conversion_dir":"/opt/HUAWEI/image",
-            "cgw_certificate":"/home/cgw.pem",
-            "access_key_id":"",
-            "secret_key":"",
-            "cgw_username":"ec2-user",
-            "cgw_host_id":"i-c124700d"
+            "rpc_response_timeout":"120"
         },
         "keystone_authtoken": {
             "insecure": "true",

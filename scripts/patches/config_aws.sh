@@ -1,6 +1,10 @@
 #!/bin/sh
-AWS_CONFIG_TEMPLATE=aws_config.template
-AWS_CONFIG_FILE=./patches_tool/aws_patch/aws_config.ini
+dir=`cd "$(dirname "$0")"; pwd`
+AWS_CONFIG_TEMPLATE=${dir}/aws_config.template
+AWS_CONFIG_FILE=${dir}/patches_tool/aws_patch/aws_config.ini
+INSTALL_SCRIPT_AGENT=${dir}/patches_tool/aws_patch/install_agent.sh
+INSTALL_SCRIPT_AGENTLESS=${dir}/patches_tool/aws_patch/install_agentless.sh
+INSTALL_SCRIPT=${dir}/patches_tool/aws_patch/install.sh
 
 create_config_file() {
     if [ -f ${AWS_CONFIG_FILE} ]; then
@@ -9,13 +13,6 @@ create_config_file() {
     fi
     echo "copy aws_config.ini ..."
     cp ${AWS_CONFIG_TEMPLATE} ${AWS_CONFIG_FILE}
-}
-
-config_dns() {
-    dns=$1
-    echo "config dns ..."
-    sed -i "s/%dns%/${dns}/" ${AWS_CONFIG_FILE}
-    echo "config dns success."
 }
 
 config_aws() {
@@ -82,14 +79,25 @@ conf_cinder_keystone_auth_token() {
     sed -i "s#%cascading_domain%#${cascading_domain}#" ${AWS_CONFIG_FILE}
 }
 
+conf_driver() {
+    driver_type=${1}
+    if [ "$driver_type"x == "agentless"x ]; then
+        cp ${INSTALL_SCRIPT_AGENTLESS} ${INSTALL_SCRIPT}
+    elif [ "$driver_type"x == "agent"x ]; then
+        cp ${INSTALL_SCRIPT_AGENT} ${INSTALL_SCRIPT}
+    fi
+
+    sed -i "s/%driver_type%/${driver_type}/" ${AWS_CONFIG_FILE}
+}
+
 
 if [ $# != 21 ]; then
-    echo "Usage: sh $0 dns access_key_id secret_key aws_region availability_zone api_subnet_id data_subnet_id cgw_id cgw_ip openstack_az_host_ip openstack_api_subnet aws_api_gw openstack_tunnel_subnet aws_tunnel_gw cidr_vms cidr_hns internal_base_subnet_id hn_image_id vpc_id internal_base_ip cascading_domain"
+    echo "Usage: sh $0 access_key_id secret_key aws_region availability_zone api_subnet_id data_subnet_id cgw_id cgw_ip openstack_az_host_ip openstack_api_subnet aws_api_gw openstack_tunnel_subnet aws_tunnel_gw cidr_vms cidr_hns internal_base_subnet_id hn_image_id vpc_id internal_base_ip cascading_domain driver_type"
     exit 1
 fi
 create_config_file
-config_dns $1
-config_aws $2 $3 $4 $5 $6 $7 $8 $9 ${10}
-config_route ${11} ${12} ${13} ${14}
-config_hypernode_api ${15} ${16} ${7} ${17} ${18} ${19} ${20} ${14}
-conf_cinder_keystone_auth_token ${21}
+config_aws ${1} ${2} ${3} ${4} ${5} ${6} ${7} ${8} ${9}
+config_route ${10} ${11} ${12} ${13}
+config_hypernode_api ${14} ${15} ${6} ${16} ${17} ${18} ${19} ${13}
+conf_cinder_keystone_auth_token ${20}
+conf_driver ${21}

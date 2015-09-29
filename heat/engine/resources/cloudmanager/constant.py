@@ -13,10 +13,10 @@ class PublicConstant(object):
 
 
 class VpnConstant(object):
-    VPN_ROOT = "XXX"
-    VPN_ROOT_PWD = "XXX"
-    AWS_VPN_ROOT = "XXX"
-    AWS_VPN_ROOT_PWD = "XXX"
+    VPN_ROOT = "root"
+    VPN_ROOT_PWD = "hybrid@123"
+    AWS_VPN_ROOT = "root"
+    AWS_VPN_ROOT_PWD = "hybrid"
     # SCRIPTS_DIR = os.path.join(os.path.abspath('.'), "scripts", "vpn")
     # SCRIPTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts", "vpn")
     SCRIPTS_DIR = os.path.join("/home/openstack/cloud_manager", "scripts", "vpn")
@@ -27,8 +27,8 @@ class VpnConstant(object):
 
 
 class Cascaded(object):
-    ROOT = "XXX"
-    ROOT_PWD = "XXX"
+    ROOT = "root"
+    ROOT_PWD = "cnp200@HW"
     # SCRIPTS_DIR = os.path.join(os.path.abspath('.'), "scripts", "cascaded")
     # SCRIPTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts", "cascaded")
     SCRIPTS_DIR = os.path.join("/home/openstack/cloud_manager", "scripts", "cascaded")
@@ -39,11 +39,13 @@ class Cascaded(object):
     CASCADED_ADD_ROUTE_SCRIPT = "cascaded_add_route.sh"
     ADD_ROUTE_SCRIPT = "add_route.sh"
     ADD_API_ROUTE_SCRIPT = "cascaded_add_api_route.sh"
+    CREATE_ENV = "create_env.sh"
+    CONFIG_CINDER_SCRIPT = "config_storage.sh"
 
 
 class Cascading(object):
-    ROOT = "XXX"
-    ROOT_PWD = "XXX"
+    ROOT = "root"
+    ROOT_PWD = "Huawei@CLOUD8!"
     # SCRIPTS_DIR = os.path.join(os.path.abspath('.'), "scripts", "cascading")
     # SCRIPTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts", "cascading")
     SCRIPTS_DIR = os.path.join("/home/openstack/cloud_manager", "scripts", "cascading")
@@ -76,3 +78,5 @@ class RemoveConstant(object):
     REMOVE_AGGREGATE_SCRIPT = "remove_aggregate.sh"
     REMOVE_CINDER_SERVICE_SCRIPT = "remove_cinder_service.sh"
     REMOVE_NEUTRON_AGENT_SCRIPT = "remove_neutron_agent.sh"
+
+

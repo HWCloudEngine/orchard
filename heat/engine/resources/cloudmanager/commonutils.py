@@ -1,21 +1,27 @@
 # -*- coding:utf-8 -*-
+
 __author__ = 'q00222219@huawei'
 
 import os
-
+import time
 import sshclient
-
 from exception import *
 
 
-def check_ssh_server(host, user, password):
+def check_host_status(host, user, password, retry_time=100, interval=1):
+    logger.info("check host status, host: %s" % host)
     ssh = sshclient.SSH(host=host, user=user, password=password)
-    try:
-        operate_result = ssh.execute("ls")
-    except (sshclient.SSHError, sshclient.SSHTimeout) as e:
-        return False
-
-    return True
+    for i in range(retry_time):
+        try:
+            ssh.execute("ls")
+            logger.info("host is ok, host: %s" % host)
+            return True
+        except Exception:
+            time.sleep(interval)
+            continue
+    logger.error("check host status failed, host = % s" % host)
+    raise CheckHostStatusFailure(reason="check host status error, host = % s"
+                                        % host)
 
 
 def execute_cmd_without_stdout(host, user, password, cmd):
@@ -23,8 +29,9 @@ def execute_cmd_without_stdout(host, user, password, cmd):
     ssh = sshclient.SSH(host=host, user=user, password=password)
     try:
         operate_result = ssh.execute(cmd)
-    except (sshclient.SSHError, sshclient.SSHTimeout) as e:
-        logger.error("execute ssh command failed: host = %s, cmd = %s, reason = %s" % (ssh.host, cmd, e.message))
+    except Exception as e:
+        logger.error("execute ssh command failed: host: %s, cmd: %s, error: %s"
+                     % (ssh.host, cmd, e.message))
         raise SSHCommandFailure(host=ssh.host, command=cmd, reason=e.message)
     finally:
         ssh.close()
@@ -70,10 +77,10 @@ def scp_file_to_host(host, user, password, file_name, local_dir, remote_dir):
         logger.error("spc file to host failed, host = %s, "
                      "file_name = %s, local_dir = %s, remote_dir = %s, reason = %s"
                      % (ssh.host, file_name, local_dir, remote_dir, e.message))
-        raise ScpFileToHostFailure(host=ssh.host, file_name=file_name,
-                                   local_dir=local_dir,
-                                   remote_dir=remote_dir,
-                                   reason=e.message)
+        raise SSHCommandFailure(host=ssh.host, file_name=file_name,
+                                local_dir=local_dir,
+                                remote_dir=remote_dir,
+                                reason=e.message)
     finally:
         ssh.close()
 

@@ -190,7 +190,6 @@ if __name__ == '__main__':
     log.init('patches_tool_config')
     config.export_env()
 
-
     print('Start to patch Hybrid-Cloud patches in cascading node and proxy nodes...')
     log.info('Start to patch Hybrid-Cloud patches in cascading node and proxy nodes...')
 
@@ -199,7 +198,6 @@ if __name__ == '__main__':
 
     print('Finish to patch Hybrid-Cloud patches in cascading node and proxy nodes...')
     log.info('Finish to patch Hybrid-Cloud patches in cascading node and proxy nodes...')
-
 
     print('Start to patch Hybrid-Cloud patches in cascaded nodes...')
     log.info('Start to patch Hybrid-Cloud patches in cascaded nodes...')
@@ -210,13 +208,12 @@ if __name__ == '__main__':
     print('Finish to patch Hybrid-Cloud patches in cascaded nodes...')
     log.info('Finish to patch Hybrid-Cloud patches in cascaded nodes...')
 
-
     print('Start to restart openstack service for nova/neutron/cinder.')
     patches_tool.restart_service()
     print('Finish to restart openstack service for nova/neutron/cinder.')
 
     print('Start to verify services status')
-    time.sleep(15)
+    time.sleep(5)
     patches_tool.verify_services_status()
     print('Finish to verify services status')
 

@@ -9,82 +9,80 @@ import log as logger
 # __CURRENT_PATH = os.path.dirname(os.path.abspath(__file__))
 # subnet_data_file = os.path.join(__CURRENT_PATH, "data", "subnet.json")
 subnet_data_file = os.path.join("/home/openstack/cloud_manager", "data", "subnet.json")
-
-
-class SysMutex(object):
-    g_mutex = threading.Lock()
-
-    def get(self):
-        return self.g_mutex
-
-    def acquire(self):
-        self.g_mutex.acquire()
-
-    def release(self):
-        self.g_mutex.release()
+subnet_manager_lock = threading.Lock()
 
 
 class SubnetManager(object):
     def __init__(self):
-        self._lock = SysMutex()
-        self.file = subnet_data_file
-
-    def __lock(self):
-        self._lock.acquire()
-
-    def __unlock(self):
-        self._lock.release()
+        pass
 
     def distribute_subnet_pair(self):
         """
         :return:{'api_subnet': '172.29.0.0/24', 'tunnel_subnet': '172.29.1.0/24'}
         """
-        subnets_info = self.__get_subnet_info__()
+        subnet_manager_lock.acquire()
+        try:
+            subnet_info = self.__get_subnet_info__()
 
-        if subnets_info["free"] > 0:
-            subnet_id = subnets_info["free_subnet"].pop()
-        else:
-            subnet_id = subnets_info["total"]
-            while subnet_id in subnets_info["free_subnet"] or subnet_id in  subnets_info["active_subnet"]:
-                subnet_id += 1
+            if subnet_info["free"] > 0:
+                subnet_id = subnet_info["free_subnet"].pop()
+            else:
+                subnet_id = subnet_info["total"]
+                while subnet_id in subnet_info["free_subnet"] or subnet_id in subnet_info["active_subnet"]:
+                    subnet_id += 1
 
-        subnets_info["active_subnet"].append(subnet_id)
-        subnets_info["free"] = len(subnets_info["free_subnet"])
-        subnets_info["total"] = len(subnets_info["free_subnet"]) + len(subnets_info["active_subnet"])
+            subnet_info["active_subnet"].append(subnet_id)
+            subnet_info["free"] = len(subnet_info["free_subnet"])
+            subnet_info["total"] = len(subnet_info["free_subnet"]) + len(subnet_info["active_subnet"])
 
-        with open(self.file, 'w+') as fd:
-            fd.write(json.dumps(subnets_info, indent=4))
+            self.__write_subnet_info__(subnet_info)
 
-        api_subnet = '172.29.%s.0/24' % subnet_id
-        tunnel_subnet = '172.29.%s.0/24' % (subnet_id+128)
+            api_subnet = '172.29.%s.0/24' % subnet_id
+            tunnel_subnet = '172.29.%s.0/24' % (subnet_id + 128)
 
-        return {'api_subnet': api_subnet, 'tunnel_subnet': tunnel_subnet}
+            return {'api_subnet': api_subnet, 'tunnel_subnet': tunnel_subnet}
+        except Exception as e:
+            logger.error("distribute subnet pair error, error: %s" % e.message)
+        finally:
+            subnet_manager_lock.release()
 
     def release_subnet_pair(self, subnet_pair):
-        api_subnet = subnet_pair['api_subnet']
-        tunnel_subnet = subnet_pair['tunnel_subnet']
+        subnet_manager_lock.acquire()
+        try:
+            api_subnet = subnet_pair['api_subnet']
+            tunnel_subnet = subnet_pair['tunnel_subnet']
 
-        api_subnet_id = api_subnet.split(".")[2]
-        tunnel_subnet_id = tunnel_subnet.split(".")[2]
+            api_subnet_id = api_subnet.split(".")[2]
+            tunnel_subnet_id = tunnel_subnet.split(".")[2]
 
-        subnet_id = int(api_subnet_id)
+            subnet_id = int(api_subnet_id)
 
-        subnet_info = self.__get_subnet_info__()
+            subnet_info = self.__get_subnet_info__()
 
-        if subnet_id in subnet_info["active_subnet"]:
-            subnet_info["active_subnet"].remove(subnet_id)
-            subnet_info["free_subnet"].append(subnet_id)
-            subnet_info["free"] = len(subnet_info["free_subnet"])
+            if subnet_id in subnet_info["active_subnet"]:
+                subnet_info["active_subnet"].remove(subnet_id)
+                subnet_info["free_subnet"].append(subnet_id)
+                subnet_info["free"] = len(subnet_info["free_subnet"])
 
-        with open(self.file, 'w+') as fd:
-            fd.write(json.dumps(subnet_info, indent=4))
-        return True
+            self.__write_subnet_info__(subnet_info)
+            return True
+        except Exception as e:
+            logger.error("release subnet pair error, subnet_pair: %s, error: %s"
+                         % (subnet_pair, e.message))
+        finally:
+            subnet_manager_lock.release()
 
-    def __get_subnet_info__(self):
-        if not os.path.exists(self.file):
+    @staticmethod
+    def __get_subnet_info__():
+        if not os.path.exists(subnet_data_file):
             subnet_info = {"free_subnet": [], "active_subnet": [], "total": 0, "free": 0}
         else:
-            with open(self.file, 'r+') as fd:
+            with open(subnet_data_file, 'r+') as fd:
                 tmp = fd.read()
                 subnet_info = json.loads(tmp)
         return subnet_info
+
+    @staticmethod
+    def __write_subnet_info__(subnet_info):
+        with open(subnet_data_file, 'w+') as fd:
+            fd.write(json.dumps(subnet_info, indent=4))
