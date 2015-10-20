@@ -1,4 +1,5 @@
 # -*- coding:utf-8 -*-
+
 __author__ = 'q00222219@huawei'
 
 import threading
@@ -17,6 +18,7 @@ from constant import *
 from vpn_configer import VpnConfiger
 from cascading_configer import CascadingConfiger
 from cascaded_configer import CascadedConfiger
+from hypernode_manager.hypernode_manager import HyperNodeManager
 
 logger.init('CloudManager')
 
@@ -30,8 +32,8 @@ class CloudManager:
         self.cascaded_thread = None
 
     def add_remote_cloud(self, cloud_type, region_name, az, az_alias,
-                         access_key_id, secret_key, access="True",
-                         driver_type="agent"):
+                         access_key_id, secret_key, access=True,
+                         driver_type="agentless"):
         start_time = time.time()
         logger.info("start add cloud, cloud_type=%s, region_name=%s, "
                     "az=%s, az_alias=%s, access=%s, driver_type=%s"
@@ -68,8 +70,12 @@ class CloudManager:
                 api_cidr=vpn_subnets["api_subnet"],
                 tunnel_cidr=vpn_subnets["tunnel_subnet"])
 
-            # create a aws cloud instance.
+            if aws_install_info is None:
+                logger.error("install aws cascaded vm and vpn vm error.")
+                return False
             logger.info("install aws cascaded vm and vpn vm success.")
+
+            # create a aws cloud instance.
             cascaded_openstack = aws_install_info["cascaded_openstack"]
             cascaded_openstack["cascaded_domain"] = cascaded_domain
 
@@ -84,7 +90,9 @@ class CloudManager:
                                       az,
                                       access_key_id, secret_key,
                                       cascaded_openstack, api_vpn, tunnel_vpn,
-                                      access=access.lower())
+                                      aws_install_info["vpc_id"],
+                                      driver_type=driver_type,
+                                      access=access)
 
             # config local_vpn.
             vpn_conn_name = cloud.get_vpn_conn_name()
@@ -173,38 +181,24 @@ class CloudManager:
 
             cost_time = time.time() - start_time
             logger.info("start all thread, cost time: %d" % cost_time)
-            self.local_vpn_thread.start()
-            self.remote_api_vpn_thread.start()
-            self.remote_tunnel_vpn_thread.start()
-            self.cascading_thread.start()
-            self.cascaded_thread.start()
+            self._start_all_threads()
 
             logger.info("add route to aws on cascading ...")
-            try:
-                self._add_local_vpn_route(
-                    host_ip=env_info["cascading_ip"],
+            self._add_vpn_route(
+                host_ip=env_info["cascading_ip"],
+                aws_api_subnet=api_vpn["private_subnet"],
+                api_gw=env_info["api_vpn_ip"],
+                aws_tunnel_subnet=tunnel_vpn["private_subnet"],
+                tunnel_gw=env_info["tunnel_vpn_ip"])
+
+            logger.info("add route to aws on existed cascaded ...")
+            for host in env_info["existed_cascaded"]:
+                self._add_vpn_route(
+                    host_ip=host,
                     aws_api_subnet=api_vpn["private_subnet"],
                     api_gw=env_info["api_vpn_ip"],
                     aws_tunnel_subnet=tunnel_vpn["private_subnet"],
                     tunnel_gw=env_info["tunnel_vpn_ip"])
-            except Exception as e:
-                logger.error("add route to aws on on cascading error, error: %s"
-                             % e.message)
-
-            logger.info("add route to aws on existed cascaded ...")
-            for host in env_info["existed_cascaded"]:
-                try:
-                    self._add_local_vpn_route(
-                        host_ip=host,
-                        aws_api_subnet=api_vpn["private_subnet"],
-                        api_gw=env_info["api_vpn_ip"],
-                        aws_tunnel_subnet=tunnel_vpn["private_subnet"],
-                        tunnel_gw=env_info["tunnel_vpn_ip"])
-                except Exception as e:
-                    logger.error(
-                        "add route to aws on existed cascaded error, "
-                        "host: %s, error: %s"
-                        % (host, e.message))
 
             # config proxy on cascading host
             if proxy_info is None:
@@ -242,11 +236,7 @@ class CloudManager:
 
             cost_time = time.time() - start_time
             logger.info("wait all thread success, cost time: %d" % cost_time)
-            self.local_vpn_thread.join()
-            self.remote_api_vpn_thread.join()
-            self.remote_tunnel_vpn_thread.join()
-            self.cascading_thread.join()
-            self.cascaded_thread.join()
+            self._join_all_threads()
 
             cost_time = time.time() - start_time
             logger.info("config success, cost time: %d" % cost_time)
@@ -262,7 +252,7 @@ class CloudManager:
                 cascading_domain=env_info["cascading_domain"],
                 cascaded_domain=cascaded_domain)
 
-            if access.lower() == "true":
+            if access:
                 try:
                     self._enable_api_network_cross(
                         cloud=cloud,
@@ -286,6 +276,20 @@ class CloudManager:
             # add vcloud
             pass
 
+    def _start_all_threads(self):
+        self.local_vpn_thread.start()
+        self.remote_api_vpn_thread.start()
+        self.remote_tunnel_vpn_thread.start()
+        self.cascading_thread.start()
+        self.cascaded_thread.start()
+
+    def _join_all_threads(self):
+        self.local_vpn_thread.join()
+        self.remote_api_vpn_thread.join()
+        self.remote_tunnel_vpn_thread.join()
+        self.cascading_thread.join()
+        self.cascaded_thread.join()
+
     @staticmethod
     def _distribute_cloud_domain(region_name, az_alias, az_tag):
         """distribute cloud domain
@@ -301,21 +305,24 @@ class CloudManager:
         return {"cidr_vms": "172.29.252.0/24", "cidr_hns": "172.29.251.0/24"}
 
     @staticmethod
-    def _add_local_vpn_route(host_ip, aws_api_subnet, api_gw,
-                             aws_tunnel_subnet, tunnel_gw):
-
-        execute_cmd_without_stdout(
-            host=host_ip,
-            user=constant.Cascading.ROOT,
-            password=constant.Cascading.ROOT_PWD,
-            cmd='cd %(dir)s; sh %(script)s '
-                '%(aws_api_subnet)s %(api_gw)s '
-                '%(aws_tunnel_subnet)s %(tunnel_gw)s'
-                % {"dir": constant.Cascading.REMOTE_SCRIPTS_DIR,
-                   "script": constant.Cascading.ADD_VPN_ROUTE_SCRIPT,
-                   "aws_api_subnet": aws_api_subnet, "api_gw": api_gw,
-                   "aws_tunnel_subnet": aws_tunnel_subnet,
-                   "tunnel_gw": tunnel_gw})
+    def _add_vpn_route(host_ip, aws_api_subnet, api_gw,
+                       aws_tunnel_subnet, tunnel_gw):
+        try:
+            execute_cmd_without_stdout(
+                host=host_ip,
+                user=constant.Cascading.ROOT,
+                password=constant.Cascading.ROOT_PWD,
+                cmd='cd %(dir)s; sh %(script)s '
+                    '%(aws_api_subnet)s %(api_gw)s '
+                    '%(aws_tunnel_subnet)s %(tunnel_gw)s'
+                    % {"dir": constant.Cascading.REMOTE_SCRIPTS_DIR,
+                       "script": constant.Cascading.ADD_VPN_ROUTE_SCRIPT,
+                       "aws_api_subnet": aws_api_subnet, "api_gw": api_gw,
+                       "aws_tunnel_subnet": aws_tunnel_subnet,
+                       "tunnel_gw": tunnel_gw})
+        except SSHCommandFailure:
+            logger.error("add vpn route error, host: %s" % host_ip)
+            return False
         return True
 
     @staticmethod
@@ -328,17 +335,22 @@ class CloudManager:
                 proxy_info = ProxyManager().next_proxy_name()
             else:
                 return proxy_info
-        raise ConfigProxyFailure(reason="check proxy config result failed")
+        raise ConfigProxyFailure(error="check proxy config result failed")
 
     @staticmethod
     def _config_proxy(cascading_ip, proxy_info):
         logger.info("command role host add...")
-        execute_cmd_without_stdout(
-            host=cascading_ip,
-            user=constant.Cascading.ROOT,
-            password=constant.Cascading.ROOT_PWD,
-            cmd="cps role-host-add --host %(proxy_host_name)s dhcp; cps commit"
-                % {"proxy_host_name": proxy_info["host_name"]})
+        for i in range(3):
+            try:
+                execute_cmd_without_stdout(
+                    host=cascading_ip,
+                    user=constant.Cascading.ROOT,
+                    password=constant.Cascading.ROOT_PWD,
+                    cmd="cps role-host-add --host %(proxy_host_name)s dhcp;"
+                        "cps commit"
+                        % {"proxy_host_name": proxy_info["host_name"]})
+            except Exception:
+                logger.error("config proxy error, try again...")
         return True
 
     @staticmethod
@@ -499,7 +511,7 @@ class CloudManager:
                 continue
 
             other_cloud = AwsCloudDataHandler().get_aws_cloud(other_cloud_id)
-            if other_cloud.access == "false":
+            if not other_cloud.access:
                 continue
 
             conn_name = "%s-api-%s" % (cloud.cloud_id, other_cloud_id)
@@ -581,7 +593,7 @@ class CloudManager:
 
     @staticmethod
     def _config_storage(cascaded_ip, user, password, cascading_domain, cascaded_domain):
-        for i in range(100):
+        for i in range(7):
             try:
                 execute_cmd_without_stdout(
                     host=cascaded_ip,
@@ -607,7 +619,7 @@ class CloudManager:
     @staticmethod
     def _enable_tunnel_network_cross(cloud, access_key_id, secret_key):
         vpn_info = cloud.tunnel_vpn
-        cascaded_info = cloud.cascaded_openstack
+        # cascaded_info = cloud.cascaded_openstack
         vpn = VPN(public_ip=vpn_info["public_ip"],
                   user=VpnConstant.AWS_VPN_ROOT,
                   pass_word=VpnConstant.AWS_VPN_ROOT_PWD)
@@ -617,12 +629,12 @@ class CloudManager:
                 continue
 
             other_cloud = AwsCloudDataHandler().get_aws_cloud(other_cloud_id)
-            if other_cloud.access == "false":
+            if not other_cloud.access:
                 continue
 
             conn_name = "%s-tunnel-%s" % (cloud.cloud_id, other_cloud_id)
             other_vpn_info = other_cloud.tunnel_vpn
-            other_cascaded_info = other_cloud.cascaded_openstack
+            # other_cascaded_info = other_cloud.cascaded_openstack
             other_vpn = VPN(public_ip=other_vpn_info["public_ip"],
                             user=VpnConstant.AWS_VPN_ROOT,
                             pass_word=VpnConstant.AWS_VPN_ROOT_PWD)
@@ -736,7 +748,7 @@ class CloudManager:
     def delete_aws_cloud(self, region_name, az_alias):
         try:
             env_info = read_environment_info()
-        except ReadEnvironmentInfoFailure as e:
+        except ReadEnvironmentInfoFailure:
             logger.error("read environment info error. check the config file.")
             return False
 
@@ -747,13 +759,20 @@ class CloudManager:
 
         aws_cloud_info = AwsCloudDataHandler().get_aws_cloud(cloud_id=cloud_id)
 
+        if aws_cloud_info.driver_type == "agentless":
+            HyperNodeManager(
+                access_key_id=aws_cloud_info.access_key_id,
+                secret_key_id=aws_cloud_info.secret_key,
+                region=aws_cloud_info.region,
+                vpc_id=aws_cloud_info.vpc_id).start_remove_all()
+
         cascaded_installer.aws_cascaded_uninstall(
             region=aws_cloud_info.region,
             az=aws_cloud_info.az,
             access_key_id=aws_cloud_info.access_key_id,
             secret_key=aws_cloud_info.secret_key)
 
-        # config cacading
+        # config cascading
         try:
             execute_cmd_without_stdout(
                 host=env_info["cascading_ip"],
@@ -817,49 +836,58 @@ class CloudManager:
                        "script": constant.RemoveConstant.REMOVE_KEYSTONE_SCRIPT,
                        "cascaded_domain": aws_cloud_info.cascaded_openstack[
                            "cascaded_domain"]})
-        except Exception as e:
+        except SSHCommandFailure:
             logger.error("remove keystone endpoint error.")
 
         try:
-            ProxyManager(env_info["cascading_ip"]).release_proxy(aws_cloud_info.proxy_info["host_name"])
-            execute_cmd_without_stdout(host=env_info["cascading_ip"],
-                                       user=constant.Cascading.ROOT, password=constant.Cascading.ROOT_PWD,
-                                       cmd='cd %(dir)s; sh %(script)s %(proxy_host_name)s'
-                                           % {"dir": constant.RemoveConstant.REMOTE_SCRIPTS_DIR,
-                                              "script": constant.RemoveConstant.REMOVE_PROXY_SCRIPT,
-                                              "proxy_host_name": aws_cloud_info.proxy_info["host_name"]})
-        except Exception as e:
+            ProxyManager(env_info["cascading_ip"]).release_proxy(
+                aws_cloud_info.proxy_info["host_name"])
+            execute_cmd_without_stdout(
+                host=env_info["cascading_ip"],
+                user=constant.Cascading.ROOT,
+                password=constant.Cascading.ROOT_PWD,
+                cmd='cd %(dir)s; sh %(script)s %(proxy_host_name)s'
+                    % {"dir": constant.RemoveConstant.REMOTE_SCRIPTS_DIR,
+                       "script": constant.RemoveConstant.REMOVE_PROXY_SCRIPT,
+                       "proxy_host_name": aws_cloud_info.proxy_info[
+                           "host_name"]})
+        except SSHCommandFailure:
             logger.error("remove proxy error.")
 
         address = "/%(cascaded_domain)s/%(cascaded_ip)s" \
-                  % {"cascaded_domain": aws_cloud_info.cascaded_openstack["cascaded_domain"],
-                     "cascaded_ip": aws_cloud_info.cascaded_openstack["api_ip"]}
+                  % {"cascaded_domain":
+                         aws_cloud_info.cascaded_openstack["cascaded_domain"],
+                     "cascaded_ip":
+                         aws_cloud_info.cascaded_openstack["api_ip"]}
 
         try:
-            execute_cmd_without_stdout(host=env_info["cascading_ip"],
-                                       user=constant.Cascading.ROOT, password=constant.Cascading.ROOT_PWD,
-                                       cmd='cd %(dir)s; sh %(script)s remove %(address)s'
-                                           % {"dir": constant.Cascading.REMOTE_SCRIPTS_DIR,
-                                              "script": constant.PublicConstant.MODIFY_DNS_SERVER_ADDRESS,
-                                              "address": address})
-        except Exception as e:
+            execute_cmd_without_stdout(
+                host=env_info["cascading_ip"],
+                user=constant.Cascading.ROOT,
+                password=constant.Cascading.ROOT_PWD,
+                cmd='cd %(dir)s; sh %(script)s remove %(address)s'
+                    % {"dir": constant.Cascading.REMOTE_SCRIPTS_DIR,
+                       "script":
+                           constant.PublicConstant.MODIFY_DNS_SERVER_ADDRESS,
+                       "address": address})
+        except SSHCommandFailure:
             logger.error("remove dns address error.")
 
         # config local_vpn
         try:
-            local_vpn = VPN(env_info["vpn_ip"], constant.VpnConstant.VPN_ROOT, constant.VpnConstant.VPN_ROOT_PWD)
+            local_vpn = VPN(env_info["vpn_ip"],
+                            constant.VpnConstant.VPN_ROOT,
+                            constant.VpnConstant.VPN_ROOT_PWD)
             local_vpn.remove_tunnel(aws_cloud_info.api_vpn["conn_name"])
             local_vpn.remove_tunnel(aws_cloud_info.tunnel_vpn["conn_name"])
-        except Exception as e:
+        except SSHCommandFailure:
             logger.error("remove conn error.")
 
         # release subnet
-        try:
-            subnet_pair = {'api_subnet': aws_cloud_info.api_vpn["private_subnet"],
-                           'tunnel_subnet': aws_cloud_info.tunnel_vpn["private_subnet"]}
-            SubnetManager().release_subnet_pair(subnet_pair)
-        except Exception as e:
-            logger.error("release subnet error.")
+        subnet_pair = {
+            'api_subnet': aws_cloud_info.api_vpn["private_subnet"],
+            'tunnel_subnet': aws_cloud_info.tunnel_vpn["private_subnet"]}
+        SubnetManager().release_subnet_pair(subnet_pair)
 
         try:
             self._disable_network_cross(

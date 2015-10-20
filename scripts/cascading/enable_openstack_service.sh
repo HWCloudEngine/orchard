@@ -13,11 +13,17 @@ which_sh=`which sh`
 echo "#!"${which_sh} > ${RUN_SCRIPT}
 echo ". /root/env.sh" >> ${RUN_SCRIPT}
 
-service_list=`cinder service-list | grep ${az_hostname} | awk -F"|" '{print $2}'`
+cinder_service_list=`cinder service-list | grep ${az_hostname} | awk -F"|" '{print $2}'`
 
-for service in `echo ${service_list}`
+for service in `echo ${cinder_service_list}`
 do
     echo cinder service-enable ${az_hostname} ${service} >> ${RUN_SCRIPT}
+done
+
+nova_service_list=`nova service-list | grep ${az_hostname} | awk -F "|" '{print $3}'`
+for service in `echo ${nova_service_list}`
+do
+    echo nova service-enable ${az_hostname} ${service} >> ${RUN_SCRIPT}
 done
 
 sh ${RUN_SCRIPT} > ${RUN_LOG} 2>&1

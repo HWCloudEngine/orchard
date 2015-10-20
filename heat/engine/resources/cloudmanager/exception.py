@@ -75,15 +75,15 @@ class ReadCloudInfoFailure(CloudManagerException):
 
 
 class CheckHostStatusFailure(CloudManagerException):
-    msg_fmt = "failed to check host status : %(reason)s"
+    msg_fmt = "check host status failed, host: %(host)s"
 
 
 class ConfigCascadedHostFailure(CloudManagerException):
-    msg_fmt = "failed to config cascaded host : %(reason)s"
+    msg_fmt = "failed to config cascaded host: %(error)s"
 
 
 class ConfigProxyFailure(CloudManagerException):
-    msg_fmt = "failed to config proxy : %(reason)s"
+    msg_fmt = "failed to config proxy: %(error)s"
 
 if __name__ == '__main__':
     e = ReadEnvironmentInfoFailure(error="test")

@@ -7,12 +7,16 @@ from cloud import Cloud
 class AwsCloud(Cloud):
 
     def __init__(self, cloud_id, region, az, access_key_id, secret_key,
-                 cascaded_openstack, api_vpn, tunnel_vpn, proxy_info=None, access="True"):
+                 cascaded_openstack, api_vpn, tunnel_vpn, vpc_id,
+                 proxy_info=None, driver_type="agentleass", access=True):
         """Initialize AwsCloud.
         """
-        Cloud.__init__(self, cloud_id, cascaded_openstack, api_vpn, tunnel_vpn, proxy_info, access)
+        Cloud.__init__(self, cloud_id, cascaded_openstack,
+                       api_vpn, tunnel_vpn, proxy_info, access)
         self.region = region
         self.az = az
         self.access_key_id = access_key_id
         self.secret_key = secret_key
+        self.vpc_id = vpc_id
+        self.driver_type = driver_type
 

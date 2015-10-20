@@ -37,17 +37,19 @@ class CascadedConfiger(object):
         self._config_az_cascaded()
 
         cost_time = time.time() - start_time
-        logger.info("first config success,  cascaded: %s, cost time: %d" % (self.domain, cost_time))
+        logger.info("first config success,  cascaded: %s, cost time: %d"
+                    % (self.domain, cost_time))
 
         # check config result
         for i in range(3):
             try:
                 # check 120s
-                commonutils.check_host_status(host=self.api_ip,
-                                              user=constant.Cascaded.ROOT,
-                                              password=constant.Cascaded.ROOT_PWD,
-                                              retry_time=15,
-                                              interval=1)
+                commonutils.check_host_status(
+                    host=self.api_ip,
+                    user=constant.Cascaded.ROOT,
+                    password=constant.Cascaded.ROOT_PWD,
+                    retry_time=15,
+                    interval=1)
                 logger.info("cascaded api is ready..")
                 break
             except exception.CheckHostStatusFailure as e:
@@ -59,7 +61,8 @@ class CascadedConfiger(object):
                 self._config_az_cascaded()
 
         cost_time = time.time() - start_time
-        logger.info("config cascaded success, cascaded: %s, cost_time: %d" % (self.domain, cost_time))
+        logger.info("config cascaded success, cascaded: %s, cost_time: %d"
+                    % (self.domain, cost_time))
 
     def _config_az_cascaded(self):
         logger.info("start config cascaded host, host: %s" % self.tunnel_ip)
@@ -76,7 +79,8 @@ class CascadedConfiger(object):
                         '%(cascaded_domain)s %(cascaded_ip)s '
                         '%(gateway)s'
                         % {"dir": constant.Cascaded.REMOTE_SCRIPTS_DIR,
-                           "script": constant.Cascaded.MODIFY_CASCADED_SCRIPT_PY,
+                           "script":
+                               constant.Cascaded.MODIFY_CASCADED_SCRIPT_PY,
                            "cascading_domain": self.cascading_domain,
                            "cascading_ip": self.cascading_ip,
                            "cascaded_domain": self.domain,

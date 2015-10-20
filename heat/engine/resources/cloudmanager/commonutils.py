@@ -20,8 +20,7 @@ def check_host_status(host, user, password, retry_time=100, interval=1):
             time.sleep(interval)
             continue
     logger.error("check host status failed, host = % s" % host)
-    raise CheckHostStatusFailure(reason="check host status error, host = % s"
-                                        % host)
+    raise CheckHostStatusFailure(host=host)
 
 
 def execute_cmd_without_stdout(host, user, password, cmd):
@@ -32,7 +31,7 @@ def execute_cmd_without_stdout(host, user, password, cmd):
     except Exception as e:
         logger.error("execute ssh command failed: host: %s, cmd: %s, error: %s"
                      % (ssh.host, cmd, e.message))
-        raise SSHCommandFailure(host=ssh.host, command=cmd, reason=e.message)
+        raise SSHCommandFailure(host=ssh.host, command=cmd, error=e.message)
     finally:
         ssh.close()
 
@@ -41,8 +40,10 @@ def execute_cmd_without_stdout(host, user, password, cmd):
         return True
     else:
         logger.error(
-            "execute ssh command failed: host = %s, cmd = %s, reason = %s" % (ssh.host, cmd, operate_result[2]))
-        raise SSHCommandFailure(host=ssh.host, command=cmd, reason=operate_result[2])
+            "execute ssh command failed: host = %s, cmd = %s, reason = %s"
+            % (ssh.host, cmd, operate_result[2]))
+        raise SSHCommandFailure(
+            host=ssh.host, command=cmd, error=operate_result[2])
 
 
 def execute_cmd_with_stdout(host, user, password, cmd):
@@ -50,10 +51,11 @@ def execute_cmd_with_stdout(host, user, password, cmd):
     ssh = sshclient.SSH(host=host, user=user, password=password)
     try:
         operate_result = ssh.execute(cmd)
-    except (sshclient.SSHError, sshclient.SSHTimeout) as e:
-        logger.error("execute ssh command failed: host = %s, cmd = %s, reason = %s"
-                     % (ssh.host, cmd, e.message))
-        raise SSHCommandFailure(host=ssh.host, command=cmd, reason=e.message)
+    except Exception as e:
+        logger.error(
+            "execute ssh command failed: host = %s, cmd = %s, reason = %s"
+            % (ssh.host, cmd, e.message))
+        raise SSHCommandFailure(host=ssh.host, command=cmd, error=e.message)
     finally:
         ssh.close()
 
@@ -61,9 +63,11 @@ def execute_cmd_with_stdout(host, user, password, cmd):
     if exit_code == 0:
         return operate_result[1]
     else:
-        logger.error("execute ssh command failed: host = %s, cmd = %s, reason = %s"
-                     % (ssh.host, cmd, operate_result[2]))
-        raise SSHCommandFailure(host=ssh.host, command=cmd, reason=operate_result[2])
+        logger.error(
+            "execute ssh command failed: host = %s, cmd = %s, reason = %s"
+            % (ssh.host, cmd, operate_result[2]))
+        raise SSHCommandFailure(
+            host=ssh.host, command=cmd, error=operate_result[2])
 
 
 def scp_file_to_host(host, user, password, file_name, local_dir, remote_dir):
@@ -74,13 +78,14 @@ def scp_file_to_host(host, user, password, file_name, local_dir, remote_dir):
     try:
         ssh.put_file(os.path.join(local_dir, file_name), remote_dir + "/" + file_name)
     except (sshclient.SSHError, sshclient.SSHTimeout) as e:
-        logger.error("spc file to host failed, host = %s, "
-                     "file_name = %s, local_dir = %s, remote_dir = %s, reason = %s"
-                     % (ssh.host, file_name, local_dir, remote_dir, e.message))
-        raise SSHCommandFailure(host=ssh.host, file_name=file_name,
-                                local_dir=local_dir,
-                                remote_dir=remote_dir,
-                                reason=e.message)
+        logger.error(
+            "spc file to host failed, host = %s, "
+            "file_name = %s, local_dir = %s, remote_dir = %s, reason = %s"
+            % (ssh.host, file_name, local_dir, remote_dir, e.message))
+        raise ScpFileToHostFailure(host=ssh.host, file_name=file_name,
+                                   local_dir=local_dir,
+                                   remote_dir=remote_dir,
+                                   error=e.message)
     finally:
         ssh.close()
 

@@ -28,7 +28,7 @@ class ProxyManager(object):
                                                         proxy_host_name)
                     break
 
-                if proxy_info["free"] <= 1:
+                if proxy_info["free"] < 1:
                     # add a proxy, this time have a free proxy,
                     # so we need not wait the new proxy install
                     p = multiprocessing.Process(

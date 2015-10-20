@@ -15,7 +15,6 @@ def read_environment_info():
         logger.error("read %s : No such file." % env_data_file)
         raise ReadEnvironmentInfoFailure(reason="read %s : No such file."
                                                 % env_data_file)
-
     with open(env_data_file, 'r+') as fd:
         tmp = fd.read()
         return json.loads(tmp)

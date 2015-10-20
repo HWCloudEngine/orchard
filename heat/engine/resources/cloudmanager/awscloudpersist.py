@@ -20,15 +20,21 @@ def dict_2_aws_cloud(aws_dict):
     else:
         access = "True"
 
-    aws_cloud = AwsCloud(cloud_id=aws_dict["cloud_id"], region=aws_dict["region"], az=aws_dict["az"],
-                         access_key_id=aws_dict["access_key_id"], secret_key=aws_dict["secret_key"],
+    aws_cloud = AwsCloud(cloud_id=aws_dict["cloud_id"],
+                         region=aws_dict["region"], az=aws_dict["az"],
+                         access_key_id=aws_dict["access_key_id"],
+                         secret_key=aws_dict["secret_key"],
                          cascaded_openstack=aws_dict["cascaded_openstack"],
-                         api_vpn=aws_dict["api_vpn"], tunnel_vpn=aws_dict["tunnel_vpn"],
-                         proxy_info=aws_dict["proxy_info"], access=access)
+                         api_vpn=aws_dict["api_vpn"],
+                         tunnel_vpn=aws_dict["tunnel_vpn"],
+                         vpc_id=aws_dict["vpc_id"],
+                         proxy_info=aws_dict["proxy_info"],
+                         access=access)
     return aws_cloud
 
 
-aws_cloud_data_file = os.path.join("/home/openstack/cloud_manager", "data", 'aws_cloud.json')
+aws_cloud_data_file = os.path.join("/home/openstack/cloud_manager",
+                                   "data", 'aws_cloud.json')
 aws_cloud_data_file_lock = threading.Lock()
 
 
@@ -44,7 +50,8 @@ class AwsCloudDataHandler(object):
         cloud_dicts = self.__read_aws_cloud_info__()
         if cloud_id in cloud_dicts.keys():
             return dict_2_aws_cloud(cloud_dicts[cloud_id])
-        raise ReadCloudInfoFailure(reason="no such cloud, cloud_id=%s" % cloud_id)
+        raise ReadCloudInfoFailure(reason="no such cloud, cloud_id=%s"
+                                          % cloud_id)
 
     def delete_aws_cloud(self, cloud_id):
         aws_cloud_data_file_lock.acquire()
@@ -53,7 +60,8 @@ class AwsCloudDataHandler(object):
             cloud_dicts.pop(cloud_id)
             self.__write_aws_cloud_info__(cloud_dicts)
         except Exception as e:
-            logger.error("delete aws cloud data file error, cloud_id: %s, error: %s"
+            logger.error("delete aws cloud data file error, "
+                         "cloud_id: %s, error: %s"
                          % (cloud_id, e.message))
         finally:
             aws_cloud_data_file_lock.release()
@@ -66,7 +74,8 @@ class AwsCloudDataHandler(object):
             cloud_dicts[aws_cloud.cloud_id] = dict_temp
             self.__write_aws_cloud_info__(cloud_dicts)
         except Exception as e:
-            logger.error("add aws cloud data file error, aws_cloud: %s, error: %s"
+            logger.error("add aws cloud data file error, "
+                         "aws_cloud: %s, error: %s"
                          % (aws_cloud, e.message))
         finally:
             aws_cloud_data_file_lock.release()

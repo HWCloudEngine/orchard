@@ -34,7 +34,6 @@ cfg.CONF.import_opt('instance_user', 'heat.common.config')
 LOG = logging.getLogger(__name__)
 
 
-
 class Restarter(signal_responder.SignalResponder):
     PROPERTIES = (
         INSTANCE_ID,
@@ -113,7 +112,6 @@ class Restarter(signal_responder.SignalResponder):
 
 
 class Instance(resource.Resource):
-
     PROPERTIES = (
         IMAGE_ID, INSTANCE_TYPE, KEY_NAME, AVAILABILITY_ZONE,
         DISABLE_API_TERMINATION, KERNEL_ID, MONITORING,
@@ -970,44 +968,94 @@ class Instance(resource.Resource):
 class Cloud(resource.Resource):
     PROPERTIES = (
         CLOUD_TYPE, REGION_NAME, AVAILABILITY_ZONE, AZNAME, ACCESS_KEY,
-        SECRET_KEY, ENABLE_NETWORK_CROSS_CLOUDS, DRIVER_TYPE
+        SECRET_KEY,
+        ENABLE_NETWORK_CROSS_CLOUDS,
+        DRIVER_TYPE,
+        VPC_ID, VPC_CIDR,
+        API_SUBNET_ID, API_SUBNET_CIDR,
+        DATA_SUBNET_ID, DATA_SUBNET_CIDR,
+        RESERVE_CIDR,
+        API_VPN_PRIVATE_IP, DATA_VPN_PRIVATE_IP
     ) = (
         'CloudType', 'RegionName', 'AvailabilityZone', 'AZName', 'AccessKey',
-        'SecretKey', 'EnableNetworkCrossClouds', 'DriverType'
+        'SecretKey',
+        'EnableNetworkCrossClouds',
+        'DriverType',
+        'VPCID', 'VPCCIDR',
+        'APISubnetID', 'APISubnetCIDR',
+        'DATASubnetID', 'DATASubnetCIDR',
+        'ReserveCIDR',
+        'APIVPNPrivateIP', 'DataVPNPrivateIP'
     )
 
     properties_schema = {
         CLOUD_TYPE: properties.Schema(
             properties.Schema.STRING,
-            _('Nova instance type (flavor).')
+            _('Type of cloud.')
         ),
         REGION_NAME: properties.Schema(
             properties.Schema.STRING,
-            _('Optional Nova keypair name.')
+            _('Region of the cloud.')
         ),
         AVAILABILITY_ZONE: properties.Schema(
             properties.Schema.STRING,
-            _('Availability zone to launch the instance in.')
+            _('Availability zone of the cloud.')
         ),
         AZNAME: properties.Schema(
             properties.Schema.STRING,
-            _('Availability zone to launch the instance in.')
+            _('Availability zone name of the cloud.')
         ),
         ACCESS_KEY: properties.Schema(
             properties.Schema.STRING,
-            _('Availability zone to launch the instance in.')
+            _('Access key of aws account.')
         ),
         SECRET_KEY: properties.Schema(
             properties.Schema.STRING,
-            _('Availability zone to launch the instance in.')
+            _('Secret key of aws account.')
         ),
         ENABLE_NETWORK_CROSS_CLOUDS: properties.Schema(
-            properties.Schema.STRING,
-            _('Availability zone to launch the instance in.')
+            properties.Schema.BOOLEAN,
+            _('Enable network cross clouds.')
         ),
         DRIVER_TYPE: properties.Schema(
             properties.Schema.STRING,
             _('Network driver type, agent or agentless.')
+        ),
+        VPC_ID: properties.Schema(
+            properties.Schema.STRING,
+            _('ID of the aws VPC.')
+        ),
+        VPC_CIDR: properties.Schema(
+            properties.Schema.STRING,
+            _('CIDR of the aws VPC.')
+        ),
+        API_SUBNET_ID: properties.Schema(
+            properties.Schema.STRING,
+            _('ID of the api subnet.')
+        ),
+        API_SUBNET_CIDR: properties.Schema(
+            properties.Schema.STRING,
+            _('CIDR of the api subnet.')
+        ),
+        DATA_SUBNET_ID: properties.Schema(
+            properties.Schema.STRING,
+            _('ID of the data subnet.')
+        ),
+        DATA_SUBNET_CIDR: properties.Schema(
+            properties.Schema.STRING,
+            _('CIDR of the data subnet.')
+        ),
+        RESERVE_CIDR: properties.Schema(
+            properties.Schema.STRING,
+            _('ID of the reserve subnet.')
+        ),
+        API_VPN_PRIVATE_IP: properties.Schema(
+            properties.Schema.STRING,
+            _('Private Ip of the api vpn.')
+        ),
+        DATA_VPN_PRIVATE_IP: properties.Schema(
+            properties.Schema.STRING,
+            _('Private Ip of the data vpn.')
         )
     }
 
@@ -1027,29 +1075,13 @@ class Cloud(resource.Resource):
         az_alias = self.properties.get(self.AZNAME)
         access = self.properties.get(self.ENABLE_NETWORK_CROSS_CLOUDS)
 
-        __REGION_MAP = {"tokyo": "ap-northeast-1",
-                        "singapore": "ap-southeast-1",
-                        "sydney": "ap-southeast-2",
-                        "ireland": "eu-west-1",
-                        "sao-paulo": "sa-east-1",
-                        "virginia": "us-east-1",
-                        "california": "us-west-1",
-                        "oregon": "us-west-2"}
-        if az is None or az == "":
-            az = __REGION_MAP[region_name.lower()] + "b"
-
-        # For HCC show in CI special code --- start
-        # temp_az=az_alias.lower()
-        # if temp_az == "az31" or temp_az == "az32":
-        #    return
-        # For HCC show in CI special code --- end
-
         driver_type = self.properties.get(self.DRIVER_TYPE)
         if driver_type not in ("agent", "agentless"):
             driver_type = "agentless"
 
-        # pdb.set_trace()
         cloud_manager = service.CloudManager()
+
+        # pdb.set_trace()
         cloud_manager.add_remote_cloud(cloud_type=cloud_type,
                                        access_key_id=access_key_id,
                                        secret_key=secret_key,
@@ -1058,6 +1090,7 @@ class Cloud(resource.Resource):
                                        az_alias=az_alias,
                                        access=access,
                                        driver_type=driver_type)
+        return True
 
     def handle_update(self, json_snippet, tmpl_diff, prop_diff):
         pass
@@ -1066,28 +1099,23 @@ class Cloud(resource.Resource):
         # import pdb
         # pdb.set_trace()
 
-        # For HCC show in CI special code --- start
-        az_alias = self.properties.get(self.AZNAME)
-        temp_az = az_alias.lower()
-        if temp_az == "az31" or temp_az == "az32":
-            return
-        # For HCC show in CI special code --- end
-
         try:
             service.CloudManager().delete_aws_cloud(
                 region_name=self.properties.get(self.REGION_NAME),
                 az_alias=self.properties.get(self.AZNAME))
-        except Exception:
+        except:
             print "error..."
 
 
 class vCloudCloud(resource.Resource):
     PROPERTIES = (
         CLOUD_TYPE, AZNAME, VCLOUD_URL, VCLOUD_ORG, VCLOUD_VDC, USER_NAME,
-        PASSWD, ENABLE_NETWORK_CROSS_CLOUDS
+        PASSWD,
+        ENABLE_NETWORK_CROSS_CLOUDS
     ) = (
         'CloudType', 'AZName', 'VcloudUrl', 'vCloudOrg', 'VcloudVdc',
-        'UserName', 'PassWd', 'EnableNetworkCrossClouds'
+        'UserName', 'PassWd',
+        'EnableNetworkCrossClouds'
     )
 
     properties_schema = {
@@ -1183,11 +1211,143 @@ class FusionsphereCloud(resource.Resource):
         pass
 
 
+class CloudVpn(resource.Resource):
+    PROPERTIES = (
+        REGION_NAME, AVAILABILITY_ZONE, ACCESS_KEY,
+        SECRET_KEY, ENABLE_NETWORK_CROSS_CLOUDS
+    ) = (
+        'RegionName', 'AvailabilityZone', 'AccessKey',
+        'SecretKey', 'EnableNetworkCrossClouds'
+    )
+
+    ATTRIBUTES = (
+        VPC_ID, VPC_CIDR, API_SUBNET_ID, API_SUBNET_CIDR,
+        DATA_SUBNET_ID, DATA_SUBNET_CIDR, RESERVE_CIDR,
+        API_VPN_PRIVATE_IP, DATA_VPN_PRIVATE_IP
+    ) = (
+        'VPCID', 'VPCCIDR', 'APISubnetID', 'APISubnetCIDR',
+        'DATASubnetID', 'DATASubnetCIDR', 'ReserveCIDR',
+        'APIVPNPrivateIP', 'DataVPNPrivateIP'
+    )
+
+    properties_schema = {
+        REGION_NAME: properties.Schema(
+            properties.Schema.STRING,
+            _('Region of the cloud.')
+        ),
+        AVAILABILITY_ZONE: properties.Schema(
+            properties.Schema.STRING,
+            _('Availability zone of the cloud.')
+        ),
+        ACCESS_KEY: properties.Schema(
+            properties.Schema.STRING,
+            _('Access key of aws account.')
+        ),
+        SECRET_KEY: properties.Schema(
+            properties.Schema.STRING,
+            _('Secret key of aws account.')
+        ),
+        ENABLE_NETWORK_CROSS_CLOUDS: properties.Schema(
+            properties.Schema.BOOLEAN,
+            _('Enable network cross clouds.')
+        )
+    }
+
+    attributes_schema = {
+        VPC_ID: attributes.Schema(
+            _('ID of the aws VPC.')
+        ),
+        VPC_CIDR: attributes.Schema(
+            _('CIDR of the aws VPC.')
+        ),
+        API_SUBNET_ID: attributes.Schema(
+            _('ID of the api subnet.')
+        ),
+        API_SUBNET_CIDR: attributes.Schema(
+            _('CIDR of the api subnet.')
+        ),
+        DATA_SUBNET_ID: attributes.Schema(
+            _('ID of the data subnet.')
+        ),
+        DATA_SUBNET_CIDR: attributes.Schema(
+            _('CIDR of the data subnet.')
+        ),
+        RESERVE_CIDR: attributes.Schema(
+            _('ID of the reserve subnet.')
+        ),
+        API_VPN_PRIVATE_IP: attributes.Schema(
+            _('Private Ip of the api vpn.')
+        ),
+        DATA_VPN_PRIVATE_IP: attributes.Schema(
+            _('Private Ip of the data vpn.')
+        )
+    }
+
+    def __init__(self, name, json_snippet, stack):
+        super(CloudVpn, self).__init__(name, json_snippet, stack)
+        print "CloudVpn init."
+
+    def handle_create(self):
+
+        region_name = self.properties.get(self.REGION_NAME)
+        az = self.properties.get(self.AVAILABILITY_ZONE)
+        access_key_id = self.properties.get(self.ACCESS_KEY)
+        secret_key = self.properties.get(self.SECRET_KEY)
+        enable_network_cross_clouds = self.properties.get(
+            self.ENABLE_NETWORK_CROSS_CLOUDS)
+
+        print "This is cloud_vpn create, " \
+              "region_name=%s, az=%s, access_key_id=%s, " \
+              "secret_key=%s, enable_network_cross_clouds=%s" \
+              % (region_name, az, access_key_id,
+                  secret_key, enable_network_cross_clouds)
+
+    def handle_update(self, json_snippet, tmpl_diff, prop_diff):
+        pass
+
+    def handle_delete(self):
+        pass
+
+    def _resolve_attribute(self, name):
+        region_name = self.properties.get(self.REGION_NAME)
+        az = self.properties.get(self.AVAILABILITY_ZONE)
+        access_key_id = self.properties.get(self.ACCESS_KEY)
+        secret_key = self.properties.get(self.SECRET_KEY)
+        enable_network_cross_clouds = self.properties.get(
+            self.ENABLE_NETWORK_CROSS_CLOUDS)
+
+        print "This is cloud_vpn get attributes, " \
+              "region_name=%s, az=%s, access_key_id=%s, " \
+              "secret_key=%s, enable_network_cross_clouds=%s" \
+              % (region_name, az, access_key_id,
+                 secret_key, enable_network_cross_clouds)
+
+        if name == self.VPC_ID:
+            return "vpc-b0cf84d5"
+        if name == self.VPC_CIDR:
+            return "172.29.0.0/16"
+        if name == self.API_SUBNET_ID:
+            return "subnet-d3126ca4"
+        if name == self.API_SUBNET_CIDR:
+            return "172.29.0.0/24"
+        if name == self.DATA_SUBNET_ID:
+            return "subnet-d2126ca5"
+        if name == self.DATA_SUBNET_CIDR:
+            return "172.29.128.0/24"
+        if name == self.RESERVE_CIDR:
+            return "172.29.16.0/24"
+        if name == self.API_VPN_PRIVATE_IP:
+            return "162.3.130.247"
+        if name == self.DATA_VPN_PRIVATE_IP:
+            return "172.28.48.1"
+
+
 def resource_mapping():
     return {
         'AWS::EC2::Instance': Instance,
         'OS::Heat::HARestarter': Restarter,
         'OS::Heat::Cloud': Cloud,
         'OS::Heat::vCloudCloud': vCloudCloud,
-        'OS::Heat::FusionsphereCloud': FusionsphereCloud
+        'OS::Heat::FusionsphereCloud': FusionsphereCloud,
+        'OS::Heat::CloudVpn': CloudVpn
     }

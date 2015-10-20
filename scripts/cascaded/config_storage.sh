@@ -1,7 +1,7 @@
 #!/usr/bin/sh
 dir=`cd "$(dirname "$0")"; pwd`
-RUN_SCRIPT=${dir}/add_cinder_type_run.sh
-LOG=${dir}/add_cinder_type_run.log
+RUN_SCRIPT=${dir}/config_storage_run.sh
+LOG=${dir}/config_storage_run.log
 
 az_domain=${1}
 az_region=${az_domain%%".huawei.com"}
