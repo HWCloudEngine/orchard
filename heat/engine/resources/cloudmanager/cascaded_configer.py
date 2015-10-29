@@ -52,7 +52,7 @@ class CascadedConfiger(object):
                     interval=1)
                 logger.info("cascaded api is ready..")
                 break
-            except exception.CheckHostStatusFailure as e:
+            except exception.CheckHostStatusFailure:
                 if i == 2:
                     logger.error("check cascaded api failed ...")
                     break
@@ -66,7 +66,6 @@ class CascadedConfiger(object):
 
     def _config_az_cascaded(self):
         logger.info("start config cascaded host, host: %s" % self.tunnel_ip)
-        cascaded_ip = self.tunnel_ip
         gateway = _get_gateway(self.api_ip)
         for i in range(30):
             try:
@@ -89,7 +88,7 @@ class CascadedConfiger(object):
                 break
             except exception.SSHCommandFailure as e:
                 logger.error("modify cascaded domain error: %s"
-                             % e.format_message())
+                             % e.message)
                 time.sleep(5)
         return True
 

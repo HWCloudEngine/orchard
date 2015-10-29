@@ -21,10 +21,11 @@ class ProxyManager(object):
     def next_proxy_name(self):
         proxy_manager_lock.acquire()
         try:
-            proxy_info = self.__get_proxy_info__()
+            proxy_info = self._get_proxy_info()
+            right_proxy = None
             if proxy_info["free"] > 0:
                 for proxy_host_name in proxy_info["free_proxy"].keys():
-                    right_proxy = self.__active_proxy__(proxy_info,
+                    right_proxy = self._active_proxy(proxy_info,
                                                         proxy_host_name)
                     break
 
@@ -34,9 +35,7 @@ class ProxyManager(object):
                     p = multiprocessing.Process(
                         target=proxy_installer.proxy_install)
                     p.start()
-                    # proxy_installer.proxy_install()
             else:
-                right_proxy = None
                 # add a proxy, we must wait proxy install
                 proxy_installer.proxy_install()
 
@@ -52,8 +51,8 @@ class ProxyManager(object):
     def release_proxy(self, proxy_host_name):
         proxy_manager_lock.acquire()
         try:
-            proxy_info = self.__get_proxy_info__()
-            release_proxy = self.__add_free_proxy__(proxy_info, proxy_host_name)
+            proxy_info = self._get_proxy_info()
+            release_proxy = self._add_free_proxy(proxy_info, proxy_host_name)
             with open(proxy_data_file, 'w+') as fd:
                 fd.write(json.dumps(proxy_info, indent=4))
             return release_proxy
@@ -63,7 +62,7 @@ class ProxyManager(object):
         finally:
             proxy_manager_lock.release()
 
-    def __get_proxy_info__(self):
+    def _get_proxy_info(self):
         if not os.path.exists(proxy_data_file):
             proxy_info = {"free_proxy": {}, "active_proxy": {},
                           "total": 0, "free": 0}
@@ -72,21 +71,21 @@ class ProxyManager(object):
                 tmp = fd.read()
                 proxy_info = json.loads(tmp)
 
-        system_free_proxy_host_name_list = self.__check_free_proxy__()
+        system_free_proxy_host_name_list = self._check_free_proxy()
         for proxy_host_name in proxy_info["free_proxy"].keys():
             if proxy_host_name in system_free_proxy_host_name_list:
                 pass
             else:
-                self.__active_proxy__(proxy_info, proxy_host_name)
+                self._active_proxy(proxy_info, proxy_host_name)
 
-        for proxy_host_neme in system_free_proxy_host_name_list:
-            if proxy_host_neme not in proxy_info["free_proxy"].keys():
-                self.__add_free_proxy__(proxy_info, proxy_host_neme)
+        for proxy_host_name in system_free_proxy_host_name_list:
+            if proxy_host_name not in proxy_info["free_proxy"].keys():
+                self._add_free_proxy(proxy_info, proxy_host_name)
 
         return proxy_info
 
     @staticmethod
-    def __active_proxy__(proxy_info, proxy_host_name):
+    def _active_proxy(proxy_info, proxy_host_name):
         proxy_num = proxy_info["free_proxy"].pop(proxy_host_name)
         proxy_info["active_proxy"][proxy_host_name] = proxy_num
         proxy_info["free"] = len(proxy_info["free_proxy"])
@@ -94,7 +93,7 @@ class ProxyManager(object):
         return {"host_name": proxy_host_name, "proxy_num": proxy_num}
 
     @staticmethod
-    def __add_free_proxy__(proxy_info, proxy_host_name):
+    def _add_free_proxy(proxy_info, proxy_host_name):
         if proxy_host_name in proxy_info["active_proxy"].keys():
             proxy_num = proxy_info["active_proxy"].pop(proxy_host_name)
             proxy_info["total"] = \
@@ -113,7 +112,7 @@ class ProxyManager(object):
             len(proxy_info["free_proxy"]) + len(proxy_info["active_proxy"])
         return {"host_name": proxy_host_name, "proxy_num": proxy_num}
 
-    def __check_free_proxy__(self):
+    def _check_free_proxy(self):
         temp = execute_cmd_with_stdout(
             host=self.cascading_ip,
             user=constant.Cascading.ROOT,

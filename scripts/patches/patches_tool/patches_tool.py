@@ -14,9 +14,11 @@ import log
 logger = log
 print_logger = log
 
+
 class InstallerBase(object):
     def install(self):
         return True
+
 
 class PatchInstaller(InstallerBase):
 
@@ -32,14 +34,10 @@ class PatchInstaller(InstallerBase):
             for example: ['.py']
         :return:
         """
-        # patch_path is /root/tricircle-master/juno-patches/nova/nova_scheduling_patch/
         self.patch_path = patch_path
         self.host_ip = host
-        # install_path is  openstack installed path'/usr/lib/python2.7/dist-packages/'
         self.openstack_install_path = openstack_install_path
-        # filter is valid suffix of files, for example: ['.py']
         self.filters = filters
-        # self.bak_openstack_path = CONF.DEFAULT.openstack_bak_path
 
     def get_patch_files(self, patch_path, filters):
         """
@@ -53,35 +51,6 @@ class PatchInstaller(InstallerBase):
         """
         return utils.get_files(patch_path, filters)
 
-    # def bak_patched_file(self, bak_file_path, relative_path):
-    #     """
-    #
-    #     :param patch_file:  one file of patch's source code files,
-    #         for example: /root/tricircle-master/juno-patches/nova/nova_scheduling_patch/nova/conductor/manager.py
-    #     :param relative_path:
-    #         for example: nova/conductor/manager.py
-    #     :return:
-    #     """
-    #     logger.info('Start bak_patched_file, bak_file_path:%s, relative_path:%s' % (bak_file_path, relative_path))
-    #     # relative_path is relative to this path(self.patch_path),
-    #     # for example: if self.patch_path = "/root/tricircle-master/juno-patches/nova/nova_scheduling_patch/"
-    #     # then relative_path of manager.py is "/nova/nova_scheduling_patch/nova/conductor/manager.py"
-    #     bak_path = os.path.sep.join([self.bak_openstack_path, str(self.host_ip)])
-    #     if not os.path.isdir(bak_path):
-    #         CommonCMD.mkdir(bak_path)
-    #     bak_dir = os.path.join(bak_path, os.path.dirname(relative_path))
-    #     if not os.path.isdir(bak_dir):
-    #         CommonCMD.mkdir(bak_dir)
-    #
-    #     ssh = SSHConnection(self.host_ip, 'root', 'Huawei@CLOUD8!')
-    #
-    #     if os.path.isfile(bak_file_path):
-    #         CommonCMD.cp_to(bak_file_path, bak_dir)
-    #     else:
-    #         info = 'file: <%s> is a new file, no need to bak.' % bak_file_path
-    #         logger.info(info)
-    #     logger.info('Success to bak_patched_file, bak_file_path:%s' % bak_file_path)
-
     def install(self):
         result = 'FAILED'
         patch_files = self.get_patch_files(self.patch_path, self.filters)
@@ -89,14 +58,11 @@ class PatchInstaller(InstallerBase):
             logger.error('No files in %s' % self.patch_path)
         for absolute_path, relative_path in patch_files:
             # installed_path is full install path,
-            # for example: /usr/lib/python2.7/dist-packages/nova/conductor/manager.py
             openstack_installed_file = os.path.join(self.openstack_install_path, relative_path)
-            # self.bak_patched_file(openstack_installed_file, relative_path)
 
             copy_dir = os.path.dirname(openstack_installed_file)
 
             ssh = SSHConnection(self.host_ip, 'root', 'Huawei@CLOUD8!')
-            # cp_result = CommonCMD.cp_to(absolute_path, openstack_installed_file)
             try:
                 if not stat.S_ISDIR(ssh.get_sftp().stat(copy_dir).st_mode):
                     log.info('create dir: %s' % copy_dir)
@@ -105,7 +71,6 @@ class PatchInstaller(InstallerBase):
             except IOError, e:
                 if e.args[1] == 'No such file':
                     log.info('There is no such dir in host: %s, create dir: %s' % (self.host_ip, copy_dir))
-                    #ssh.get_sftp().mkdir(copy_dir)
                     cmd = "mkdir -p %s" % copy_dir
                     utils.remote_execute_cmd(host_ip=self.host_ip, user="root", passwd="Huawei@CLOUD8!", cmd=cmd)
                 else:

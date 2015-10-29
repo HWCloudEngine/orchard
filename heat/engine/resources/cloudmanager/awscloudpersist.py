@@ -18,7 +18,7 @@ def dict_2_aws_cloud(aws_dict):
     if "access" in aws_dict.keys():
         access = aws_dict["access"]
     else:
-        access = "True"
+        access = True
 
     aws_cloud = AwsCloud(cloud_id=aws_dict["cloud_id"],
                          region=aws_dict["region"], az=aws_dict["az"],
@@ -29,7 +29,9 @@ def dict_2_aws_cloud(aws_dict):
                          tunnel_vpn=aws_dict["tunnel_vpn"],
                          vpc_id=aws_dict["vpc_id"],
                          proxy_info=aws_dict["proxy_info"],
-                         access=access)
+                         driver_type=aws_dict["driver_type"],
+                         access=access,
+                         ceph_vm=aws_dict["ceph_vm"])
     return aws_cloud
 
 

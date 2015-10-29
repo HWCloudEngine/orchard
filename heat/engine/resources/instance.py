@@ -1082,29 +1082,22 @@ class Cloud(resource.Resource):
         cloud_manager = service.CloudManager()
 
         # pdb.set_trace()
-        cloud_manager.add_remote_cloud(cloud_type=cloud_type,
-                                       access_key_id=access_key_id,
-                                       secret_key=secret_key,
-                                       region_name=region_name,
-                                       az=az,
-                                       az_alias=az_alias,
-                                       access=access,
-                                       driver_type=driver_type)
-        return True
+        return cloud_manager.add_remote_cloud(cloud_type=cloud_type,
+                                              access_key_id=access_key_id,
+                                              secret_key=secret_key,
+                                              region_name=region_name,
+                                              az=az,
+                                              az_alias=az_alias,
+                                              access=access,
+                                              driver_type=driver_type)
 
     def handle_update(self, json_snippet, tmpl_diff, prop_diff):
         pass
 
     def handle_delete(self):
-        # import pdb
-        # pdb.set_trace()
-
-        try:
-            service.CloudManager().delete_aws_cloud(
-                region_name=self.properties.get(self.REGION_NAME),
-                az_alias=self.properties.get(self.AZNAME))
-        except:
-            print "error..."
+        return service.CloudManager().delete_aws_cloud(
+            region_name=self.properties.get(self.REGION_NAME),
+            az_alias=self.properties.get(self.AZNAME))
 
 
 class vCloudCloud(resource.Resource):

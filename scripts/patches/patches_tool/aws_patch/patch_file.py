@@ -160,7 +160,9 @@ def config_cascaded_az():
     """Update parameter for neutron-server and cinder-volume, then restart them."""
 
     params = {
-        'mechanism_drivers': 'openvswitch,l2populationcascaded,evs,sriovnicswitch,netmapnicswitch'}
+        'mechanism_drivers':
+            'openvswitch,l2populationcascaded,'
+            'evs,sriovnicswitch,netmapnicswitch'}
     ret = cps_server.update_template_params('neutron', 'neutron-server', params)
     if not ret:
         LOG.error("cps update_template_params for neutron-server failed.")
@@ -197,19 +199,6 @@ def replace_cinder_volume_config(conf_file_path):
     with open(conf_file_path, "a+") as fp:
         content = json.load(fp)
 
-        # content['cinder.conf']['DEFAULT']['storage_tmp_dir'] = CONF.provider_opts.storage_tmp_dir
-        # content['cinder.conf']['DEFAULT']['availability_zone'] = CONF.provider_opts.availability_zone
-        # content['cinder.conf']['DEFAULT']['cgw_host_ip'] = CONF.provider_opts.cgw_host_ip
-        # content['cinder.conf']['DEFAULT']['region'] = CONF.provider_opts.region
-        # content['cinder.conf']['DEFAULT']['provider_image_conversion_dir'] = CONF.provider_opts.conversion_dir
-        #
-        # content['cinder.conf']['DEFAULT']['cgw_certificate'] = CONF.provider_opts.cgw_certificate
-        # content['cinder.conf']['DEFAULT']['access_key_id'] = CONF.provider_opts.access_key_id
-        # content['cinder.conf']['DEFAULT']['secret_key'] = CONF.provider_opts.secret_key
-        # content['cinder.conf']['DEFAULT']['cgw_username'] = CONF.provider_opts.cgw_user_name
-        # content['cinder.conf']['DEFAULT']['cgw_host_id'] = CONF.provider_opts.cgw_host_id
-
-        # add
         content['cinder.conf']['keystone_authtoken'][
             'tenant_name'] = CONF.keystone_authtoken.tenant_name
         content['cinder.conf']['keystone_authtoken'][
@@ -222,20 +211,18 @@ def replace_cinder_volume_config(conf_file_path):
 
 
 def replace_all_config():
-    """Replace vcloud info for nova-compute and cinder-volume"""
-
     aws_conf = construct_aws_conf()
 
     for i in range(50):
         try:
-            api_netid, tunnel_netid = get_api_tunnel_netid()
+            api_net_id, tunnel_net_id = get_api_tunnel_netid()
             break
         except Exception as e:
             LOG.error("get api tunnel netid error, try again.")
             time.sleep(6)
 
-    aws_conf['vtepdriver'][PROVIDER_API_NETWORK] = api_netid
-    aws_conf['vtepdriver'][PROVIDER_TUNNEL_NETWORK] = tunnel_netid
+    aws_conf['vtepdriver'][PROVIDER_API_NETWORK] = api_net_id
+    aws_conf['vtepdriver'][PROVIDER_TUNNEL_NETWORK] = tunnel_net_id
 
     cur_path = os.path.split(os.path.realpath(__file__))[0]
     nova_compute_path = os.path.join(cur_path, "code", "etc", "nova", "others",
@@ -339,16 +326,17 @@ def update_cinder_volume_other_storage_cfg():
     rbd = {'iscsi_server_ip': '172.29.253.11',
            'rbd_store_chunk_size': '4',
            'rbd_ceph_conf': '/etc/ceph/ceph.conf',
-           'volume_backend_name': 'HYBRID:%s:az01.shenzhen--fusionsphere'
-                                  % cascaded_region,
-           'iscsi_server_pem': '/home/HCC_AZ31_CEPH.pem',
-           'volume_driver': 'cinder.volume.drivers.cephiscsi.cephiscsi.CephIscsiDriver',
+           'volume_backend_name': 'HYBRID:%s:%s'
+                                  % (cascaded_region, cascaded_region),
+           'iscsi_server_pem': '/home/ceph-keypair.pem',
+           'volume_driver':
+               'cinder.volume.drivers.cephiscsi.cephiscsi.CephIscsiDriver',
            'rbd_user': 'cinder',
            'rados_connect_timeout': '-1',
            'rbd_pool': 'volumes',
            'rbd_flatten_volume_from_snapshot': 'false',
            'rbd_max_clone_depth': '5',
-           'iscsi_server_user': 'ubunt'}
+           'iscsi_server_user': 'ceph'}
 
     ec2 = {'storage_tmp_dir': CONF.provider_opts.storage_tmp_dir,
            'availability_zone': CONF.provider_opts.availability_zone,
@@ -357,7 +345,8 @@ def update_cinder_volume_other_storage_cfg():
            'volume_backend_name': 'AMAZONEC2',
            'region': CONF.provider_opts.region,
            'provider_image_conversion_dir': CONF.provider_opts.conversion_dir,
-           'volume_driver': 'cinder.volume.drivers.ec2.driver.AwsEc2VolumeDriver',
+           'volume_driver':
+               'cinder.volume.drivers.ec2.driver.AwsEc2VolumeDriver',
            'access_key_id': CONF.provider_opts.access_key_id,
            'secret_key': CONF.provider_opts.secret_key,
            'cgw_username': CONF.provider_opts.cgw_user_name,

@@ -5,7 +5,14 @@ ADMINRC=/root/adminrc
 
 cascading_domain=${1}
 az_domain=${2}
-az_region=${az_domain%%".huawei.com"}
+
+ifs=$IFS
+IFS='.' arr=(${az_domain})
+IFS=${ifs}
+
+az_localaz=${arr[0]}
+az_localdz=${arr[1]}
+az_region=${az_localaz}"."${az_localdz}
 
 cat > ${EVN_FILE} <<CONFIG
 export OS_AUTH_URL=https://identity.${cascading_domain}:443/identity/v2.0

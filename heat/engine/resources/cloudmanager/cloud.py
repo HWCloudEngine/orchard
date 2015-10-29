@@ -8,7 +8,7 @@ from constant import *
 class Cloud(object):
 
     def __init__(self, cloud_id, cascaded_openstack, api_vpn, tunnel_vpn,
-                 proxy_info=None, access=True):
+                 proxy_info=None, access=True, ceph_vm=None):
         """
         :param cascaded_openstack:  {"domain": "az32.singapore--aws.huawei.com",
                                      "base_ip": "172.29.124.12",
@@ -28,6 +28,7 @@ class Cloud(object):
         self.tunnel_vpn = tunnel_vpn
         self.proxy_info = proxy_info
         self.access = access
+        self.ceph_vm = ceph_vm
 
     def config_openstack_vpn(self, openstack_api_gw, openstack_api_subnet,
                              openstack_tunnel_gw, openstack_tunnel_subnet):

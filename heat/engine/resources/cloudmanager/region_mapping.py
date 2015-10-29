@@ -5,16 +5,6 @@ __author__ = 'q00222219@huawei'
 class RegionMapException(Exception):
     pass
 
-
-# __REGION_MAP = {"Tokyo": "ap-northeast-1",
-#                 "Singapore": "ap-southeast-1",
-#                 "Sydney": "ap-southeast-2",
-#                 "Ireland": "eu-west-1",
-#                 "SaoPaulo": "sa-east-1",
-#                 "NorthernVirginia": "us-east-1",
-#                 "NorthernCalifornia": "us-west-1",
-#                 "Oregon": "us-west-2"}
-
 __REGION_MAP = {"tokyo": "ap-northeast-1",
                 "singapore": "ap-southeast-1",
                 "sydney": "ap-southeast-2",
@@ -22,7 +12,8 @@ __REGION_MAP = {"tokyo": "ap-northeast-1",
                 "sao-paulo": "sa-east-1",
                 "virginia": "us-east-1",
                 "california": "us-west-1",
-                "oregon": "us-west-2"}
+                "oregon": "us-west-2",
+                "frankfurt": "eu-central-1"}
 
 
 def get_region_name_list():

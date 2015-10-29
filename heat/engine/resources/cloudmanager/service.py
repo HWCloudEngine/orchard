@@ -11,7 +11,8 @@ from vpn import VPN
 from commonutils import *
 from environmentinfo import *
 from awscloudpersist import AwsCloudDataHandler
-from proxy_manager import ProxyManager
+# from proxy_manager import ProxyManager
+import proxy_manager_ex as proxy_manager
 from subnet_manager import SubnetManager
 from region_mapping import *
 from constant import *
@@ -54,21 +55,24 @@ class CloudManager:
                 az_alias=az_alias,
                 az_tag="--aws")
 
-            proxy_info = \
-                ProxyManager(env_info["cascading_ip"]).next_proxy_name()
+            # proxy_info = \
+            #     ProxyManager(env_info["cascading_ip"]).next_proxy_name()
+            proxy_info = proxy_manager.distribute_proxy()
 
             # distribute vpn_subnet && hn_subnet for this cloud
             vpn_subnets = SubnetManager().distribute_subnet_pair()
             hn_subnet = self._distribute_cidr_for_hn()
 
             # install base environment
-            aws_install_info = cascaded_installer.aws_cascaded_intall(
+            aws_install_info = cascaded_installer.aws_cascaded_install(
                 region=get_region_id(region_name),
                 az=az,
                 access_key_id=access_key_id,
                 secret_key=secret_key,
                 api_cidr=vpn_subnets["api_subnet"],
-                tunnel_cidr=vpn_subnets["tunnel_subnet"])
+                tunnel_cidr=vpn_subnets["tunnel_subnet"],
+                ceph_cidr=vpn_subnets["api_subnet"],
+                public_gw=env_info["api_public_gw"])
 
             if aws_install_info is None:
                 logger.error("install aws cascaded vm and vpn vm error.")
@@ -92,7 +96,8 @@ class CloudManager:
                                       cascaded_openstack, api_vpn, tunnel_vpn,
                                       aws_install_info["vpc_id"],
                                       driver_type=driver_type,
-                                      access=access)
+                                      access=access,
+                                      ceph_vm=aws_install_info["ceph_vm_info"])
 
             # config local_vpn.
             vpn_conn_name = cloud.get_vpn_conn_name()
@@ -207,10 +212,10 @@ class CloudManager:
 
             logger.info("add dhcp to proxy ...")
             cloud.proxy_info = proxy_info
-            proxy_host_name = proxy_info["host_name"]
+            proxy_id = proxy_info["id"]
             proxy_num = proxy_info["proxy_num"]
-            logger.debug("proxy_host_name = %s, proxy_num = %s"
-                         % (proxy_host_name, proxy_num))
+            logger.debug("proxy_id = %s, proxy_num = %s"
+                         % (proxy_id, proxy_num))
 
             self._config_proxy(env_info["cascading_ip"], proxy_info)
 
@@ -220,7 +225,7 @@ class CloudManager:
             self._config_patch_tools(
                 cascading_ip=env_info["cascading_ip"],
                 proxy_num=proxy_num,
-                proxy_host_name=proxy_host_name,
+                proxy_host_name=proxy_id,
                 cascaded_domain=cascaded_domain,
                 openstack_api_subnet=env_info["api_subnet"],
                 aws_api_gw=api_vpn["private_ip"],
@@ -245,12 +250,14 @@ class CloudManager:
                 cascaded_openstack=cascaded_openstack)
 
             logger.info("config storage...")
+            ceph_vms = aws_install_info["ceph_vm_info"]
             self._config_storage(
                 cascaded_ip=cascaded_openstack["api_ip"],
                 user=constant.Cascaded.ROOT,
                 password=constant.Cascaded.ROOT_PWD,
                 cascading_domain=env_info["cascading_domain"],
-                cascaded_domain=cascaded_domain)
+                cascaded_domain=cascaded_domain,
+                ceph_vms=ceph_vms)
 
             if access:
                 try:
@@ -295,7 +302,7 @@ class CloudManager:
         """distribute cloud domain
         :return:
         """
-        domainpostfix = "huawei.com"
+        domainpostfix = "dt.com"
         l_region_name = region_name.lower()
         domain = ".".join([az_alias, l_region_name + az_tag, domainpostfix])
         return domain
@@ -328,11 +335,14 @@ class CloudManager:
     @staticmethod
     def _get_proxy_retry(cascading_ip):
         logger.info("get proxy retry ...")
-        proxy_info = ProxyManager(cascading_ip).next_proxy_name()
+        # proxy_manager = ProxyManager(cascading_ip)
+        # proxy_info = proxy_manager.next_proxy_name()
+        proxy_info = proxy_manager.distribute_proxy()
         for i in range(10):
             if proxy_info is None:
                 time.sleep(20)
-                proxy_info = ProxyManager().next_proxy_name()
+                # proxy_info = proxy_manager.next_proxy_name()
+                proxy_info = proxy_manager.distribute_proxy()
             else:
                 return proxy_info
         raise ConfigProxyFailure(error="check proxy config result failed")
@@ -348,8 +358,8 @@ class CloudManager:
                     password=constant.Cascading.ROOT_PWD,
                     cmd="cps role-host-add --host %(proxy_host_name)s dhcp;"
                         "cps commit"
-                        % {"proxy_host_name": proxy_info["host_name"]})
-            except Exception:
+                        % {"proxy_host_name": proxy_info["id"]})
+            except SSHCommandFailure:
                 logger.error("config proxy error, try again...")
         return True
 
@@ -388,7 +398,8 @@ class CloudManager:
         return True
 
     @staticmethod
-    def _config_aws_patches(env_info, cloud, aws_install_info, hn_subnet, driver_type):
+    def _config_aws_patches(env_info, cloud, aws_install_info,
+                            hn_subnet, driver_type):
         cascading_ip = env_info["cascading_ip"]
         openstack_api_subnet = env_info["api_subnet"]
         aws_api_gw = cloud.api_vpn["private_ip"]
@@ -431,7 +442,7 @@ class CloudManager:
                            driver_type))
                 break
             except Exception as e:
-                logger.error("conf aws file error, error: %s" %e.message)
+                logger.error("conf aws file error, error: %s" % e.message)
                 continue
 
         for i in range(10):
@@ -539,12 +550,12 @@ class CloudManager:
 
             logger.info("add route on openstack cascadeds...")
             # cloud.cascaded add route
-            scp_file_to_host(host=cascaded_info["tunnel_ip"],
-                             user=constant.Cascaded.ROOT,
-                             password=constant.Cascaded.ROOT_PWD,
-                             file_name=constant.Cascaded.ADD_API_ROUTE_SCRIPT,
-                             local_dir=constant.Cascaded.SCRIPTS_DIR,
-                             remote_dir=constant.Cascaded.REMOTE_SCRIPTS_DIR)
+            # scp_file_to_host(host=cascaded_info["tunnel_ip"],
+            #                  user=constant.Cascaded.ROOT,
+            #                  password=constant.Cascaded.ROOT_PWD,
+            #                  file_name=constant.Cascaded.ADD_API_ROUTE_SCRIPT,
+            #                  local_dir=constant.Cascaded.SCRIPTS_DIR,
+            #                  remote_dir=constant.Cascaded.REMOTE_SCRIPTS_DIR)
 
             execute_cmd_without_stdout(
                 host=cascaded_info["tunnel_ip"],
@@ -557,12 +568,12 @@ class CloudManager:
                        "gw": vpn_info["private_ip"]})
 
             # other_cloud.cascaded add route
-            scp_file_to_host(host=other_cascaded_info["tunnel_ip"],
-                             user=constant.Cascaded.ROOT,
-                             password=constant.Cascaded.ROOT_PWD,
-                             file_name=constant.Cascaded.ADD_API_ROUTE_SCRIPT,
-                             local_dir=constant.Cascaded.SCRIPTS_DIR,
-                             remote_dir=constant.Cascaded.REMOTE_SCRIPTS_DIR)
+            # scp_file_to_host(host=other_cascaded_info["tunnel_ip"],
+            #                  user=constant.Cascaded.ROOT,
+            #                  password=constant.Cascaded.ROOT_PWD,
+            #                  file_name=constant.Cascaded.ADD_API_ROUTE_SCRIPT,
+            #                  local_dir=constant.Cascaded.SCRIPTS_DIR,
+            #                  remote_dir=constant.Cascaded.REMOTE_SCRIPTS_DIR)
 
             execute_cmd_without_stdout(
                 host=other_cascaded_info["tunnel_ip"],
@@ -592,7 +603,9 @@ class CloudManager:
         return True
 
     @staticmethod
-    def _config_storage(cascaded_ip, user, password, cascading_domain, cascaded_domain):
+    def _config_storage(cascaded_ip, user, password, cascading_domain,
+                        cascaded_domain, ceph_vms):
+        # 1. create env file and config cinder on cascaded host
         for i in range(7):
             try:
                 execute_cmd_without_stdout(
@@ -602,19 +615,80 @@ class CloudManager:
                     cmd='cd %(dir)s;'
                         'sh %(create_env_script)s %(cascading_domain)s '
                         '%(cascaded_domain)s;'
-                        'sh %(conf_cinder_script)s %(cascaded_domain)s'
+                        'sh %(conf_cinder_script)s '
+                        '%(original_cascaded_domain)s '
+                        '%(backup_cascaded_domain)s'
                         % {"dir": constant.Cascaded.REMOTE_SCRIPTS_DIR,
                            "create_env_script": constant.Cascaded.CREATE_ENV,
                            "cascading_domain": cascading_domain,
                            "cascaded_domain": cascaded_domain,
                            "conf_cinder_script":
                                constant.Cascaded.CONFIG_CINDER_SCRIPT,
-                           "cascaded_domain": cascaded_domain})
-                return True
-            except Exception as e:
-                logger.error("modify cascaded domain error: %s" % e.message)
-                time.sleep(3)
+                           "original_cascaded_domain": cascaded_domain,
+                           "backup_cascaded_domain": cascaded_domain})
+                break
+            except Exception as e1:
+                logger.error("modify env file and config cinder "
+                             "on cascaded host error: %s"
+                             % e1.message)
+                time.sleep(1)
                 continue
+
+        # 2. config ceph nodes
+        for i in range(7):
+            try:
+                execute_cmd_without_stdout(
+                    host=ceph_vms["ceph_deploy_vm_ip"],
+                    user=constant.CephConstant.USER,
+                    password=constant.CephConstant.PWD,
+                    cmd='/bin/bash %(ceph_install_script)s %(deploy_ip)s '
+                        '%(node1_ip)s %(node2_ip)s %(node3_ip)s'
+                        % {"ceph_install_script":
+                               constant.CephConstant.CEPH_INSTALL_SCRIPT,
+                           "deploy_ip": ceph_vms["ceph_deploy_vm_ip"],
+                           "node1_ip": ceph_vms["ceph_node1_vm_ip"],
+                           "node2_ip": ceph_vms["ceph_node2_vm_ip"],
+                           "node3_ip": ceph_vms["ceph_node3_vm_ip"]})
+                break
+            except SSHCommandFailure as e2:
+                logger.error("install ceph nodes error, error: %s" % e2.message)
+                time.sleep(1)
+                continue
+
+        # 3. config cinder on cascaded host
+        for i in range(7):
+            try:
+                execute_cmd_without_stdout(
+                    host=cascaded_ip,
+                    user=user,
+                    password=password,
+                    cmd='cd %(dir)s; python %(config_backup_script)s '
+                        '--domain=%(cascaded_domain)s '
+                        '--backup_domain=%(backup_cascaded_domain)s '
+                        '--host=%(host_ip)s '
+                        '--backup_host=%(backup_host_ip)s'
+                        % {"dir": constant.Cascaded.REMOTE_SCRIPTS_DIR,
+                           "config_backup_script":
+                               constant.Cascaded.CONFIG_CINDER_BACKUP_SCRIPT,
+                           "cascaded_domain":
+                               CloudManager._domain_to_region(cascaded_domain),
+                           "backup_cascaded_domain":
+                               CloudManager._domain_to_region(cascaded_domain),
+                           "host_ip": ceph_vms["ceph_node1_vm_ip"],
+                           "backup_host_ip": ceph_vms["ceph_node1_vm_ip"]})
+                break
+            except SSHCommandFailure as e3:
+                logger.error("config cinder backup error, error: %s"
+                             % e3.message)
+                time.sleep(1)
+
+        return True
+
+    @staticmethod
+    def _domain_to_region(domain):
+        domain_list = domain.split(".")
+        region = domain_list[0] + "." + domain_list[1]
+        return region
 
     @staticmethod
     def _enable_tunnel_network_cross(cloud, access_key_id, secret_key):
@@ -760,12 +834,14 @@ class CloudManager:
         aws_cloud_info = AwsCloudDataHandler().get_aws_cloud(cloud_id=cloud_id)
 
         if aws_cloud_info.driver_type == "agentless":
+            logger.info("remove hyper node...")
             HyperNodeManager(
                 access_key_id=aws_cloud_info.access_key_id,
                 secret_key_id=aws_cloud_info.secret_key,
                 region=aws_cloud_info.region,
                 vpc_id=aws_cloud_info.vpc_id).start_remove_all()
 
+        logger.info("remove aws cascaded...")
         cascaded_installer.aws_cascaded_uninstall(
             region=aws_cloud_info.region,
             az=aws_cloud_info.az,
@@ -821,7 +897,7 @@ class CloudManager:
                     % {"dir": constant.RemoveConstant.REMOTE_SCRIPTS_DIR,
                        "script":
                            constant.RemoveConstant.REMOVE_NEUTRON_AGENT_SCRIPT,
-                       "proxy_host": aws_cloud_info.proxy_info["host_name"]})
+                       "proxy_host": aws_cloud_info.proxy_info["id"]})
 
         except Exception as e:
             logger.error("remove neutron agent error, error: %s" % e.message)
@@ -840,8 +916,8 @@ class CloudManager:
             logger.error("remove keystone endpoint error.")
 
         try:
-            ProxyManager(env_info["cascading_ip"]).release_proxy(
-                aws_cloud_info.proxy_info["host_name"])
+            # ProxyManager(env_info["cascading_ip"]).release_proxy(
+            #     aws_cloud_info.proxy_info["id"])
             execute_cmd_without_stdout(
                 host=env_info["cascading_ip"],
                 user=constant.Cascading.ROOT,
@@ -849,8 +925,7 @@ class CloudManager:
                 cmd='cd %(dir)s; sh %(script)s %(proxy_host_name)s'
                     % {"dir": constant.RemoveConstant.REMOTE_SCRIPTS_DIR,
                        "script": constant.RemoveConstant.REMOVE_PROXY_SCRIPT,
-                       "proxy_host_name": aws_cloud_info.proxy_info[
-                           "host_name"]})
+                       "proxy_host_name": aws_cloud_info.proxy_info["id"]})
         except SSHCommandFailure:
             logger.error("remove proxy error.")
 
