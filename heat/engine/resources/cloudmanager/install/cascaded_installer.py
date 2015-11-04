@@ -509,7 +509,9 @@ def aws_cascaded_install(region, az, access_key_id, secret_key,
                          vpc_cidr="172.29.0.0/16", debug_cidr="172.29.16.0/20",
                          base_cidr="172.29.124.0/20", api_cidr="172.29.0.0/24",
                          tunnel_cidr="172.29.1.0/24", ceph_cidr="172.29.0.0/24",
-                         public_gw="205.177.226.131"):
+                         public_gw="205.177.226.131",
+                         local_api_cidr="162.3.0.0/16",
+                         local_tunnel_cidr="172.28.48.0/20"):
     installer = None
     try:
         # import pdb
@@ -519,34 +521,40 @@ def aws_cascaded_install(region, az, access_key_id, secret_key,
         installer.create_network(vpc_cidr, debug_cidr, base_cidr, api_cidr,
                                  tunnel_cidr, ceph_cidr)
         installer.cascaded_install()
-        installer.add_route("api", "162.3.0.0/16")
-        installer.add_route("tunnel", "172.28.48.0/20")
+        installer.add_route("api", local_api_cidr)
+        installer.add_route("tunnel", local_tunnel_cidr)
         installer.add_security("%s/32" % public_gw)
-        info = {}
-        info["cascaded_openstack"] = {"vm_id": installer.cascaded_vm_id,
-                                      "base_ip": installer.cascaded_base_ip,
-                                      "api_ip": installer.cascaded_api_ip,
-                                      "tunnel_ip": installer.cascaded_tunnel_ip}
-        info["cascaded_apivpn"] = {"vm_id": installer.vpn_api_vm_id,
-                                   "private_ip": installer.vpn_api_ip,
-                                   "public_ip": installer.vpn_api_eip_public_ip}
-        info["cascaded_tunnelvpn"] = {"vm_id": installer.vpn_tunnel_vm_id,
-                                      "private_ip": installer.vpn_tunnel_ip,
-                                      "public_ip": installer.vpn_tunnel_eip_public_ip}
-        info["v2v_gateway"] = {"vm_id": installer.v2v_vm_id,
-                               "private_ip": installer.v2v_ip}
-        info["subnet_info"] = {"api_subnet": installer.api_subnetid,
-                               "tunnel_subnet": installer.tunnel_subnetid,
-                               "base_subnet": installer.base_subnetid}
-        info["hynode_ami_id"] = installer.hynode_image_id
-        info["vpc_id"] = installer.vpc_id
+        info = {"cascaded_openstack":
+                    {"vm_id": installer.cascaded_vm_id,
+                     "base_ip": installer.cascaded_base_ip,
+                     "api_ip": installer.cascaded_api_ip,
+                     "tunnel_ip": installer.cascaded_tunnel_ip},
+                "cascaded_apivpn":
+                    {"vm_id": installer.vpn_api_vm_id,
+                     "private_ip": installer.vpn_api_ip,
+                     "public_ip": installer.vpn_api_eip_public_ip},
+                "cascaded_tunnelvpn":
+                    {"vm_id": installer.vpn_tunnel_vm_id,
+                     "private_ip": installer.vpn_tunnel_ip,
+                     "public_ip": installer.vpn_tunnel_eip_public_ip},
+                "v2v_gateway":
+                    {"vm_id": installer.v2v_vm_id,
+                     "private_ip": installer.v2v_ip},
+                "subnet_info":
+                    {"api_subnet": installer.api_subnetid,
+                     "tunnel_subnet": installer.tunnel_subnetid,
+                     "base_subnet": installer.base_subnetid},
+                "hynode_ami_id":
+                    installer.hynode_image_id,
+                "vpc_id":
+                    installer.vpc_id,
+                "ceph_vm_info":
+                    {"ceph_deploy_vm_ip": installer.ceph_deploy_vm_ip,
+                     "ceph_node1_vm_ip": installer.ceph_node1_vm_ip,
+                     "ceph_node2_vm_ip": installer.ceph_node2_vm_ip,
+                     "ceph_node3_vm_ip": installer.ceph_node3_vm_ip}}
 
         # add by q00222219 for ceph: start
-        info["ceph_vm_info"] = {
-            "ceph_deploy_vm_ip": installer.ceph_deploy_vm_ip,
-            "ceph_node1_vm_ip": installer.ceph_node1_vm_ip,
-            "ceph_node2_vm_ip": installer.ceph_node2_vm_ip,
-            "ceph_node3_vm_ip": installer.ceph_node3_vm_ip}
         # add by q00222219 for ceph: end
         return info
     except:

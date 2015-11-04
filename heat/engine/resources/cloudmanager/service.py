@@ -72,11 +72,14 @@ class CloudManager:
                 api_cidr=vpn_subnets["api_subnet"],
                 tunnel_cidr=vpn_subnets["tunnel_subnet"],
                 ceph_cidr=vpn_subnets["api_subnet"],
-                public_gw=env_info["api_public_gw"])
+                public_gw=env_info["api_public_gw"],
+                local_api_cidr=env_info["api_subnet"],
+                local_tunnel_cidr=env_info["tunnel_subnet"])
 
             if aws_install_info is None:
                 logger.error("install aws cascaded vm and vpn vm error.")
                 return False
+
             logger.info("install aws cascaded vm and vpn vm success.")
 
             # create a aws cloud instance.
@@ -302,7 +305,7 @@ class CloudManager:
         """distribute cloud domain
         :return:
         """
-        domainpostfix = "dt.com"
+        domainpostfix = "huawei.com"
         l_region_name = region_name.lower()
         domain = ".".join([az_alias, l_region_name + az_tag, domainpostfix])
         return domain
@@ -832,6 +835,10 @@ class CloudManager:
             az_tag="--aws")
 
         aws_cloud_info = AwsCloudDataHandler().get_aws_cloud(cloud_id=cloud_id)
+
+        if aws_cloud_info is None:
+            logger.error("no such cloud, cloud_id=%s" % cloud_id)
+            return True
 
         if aws_cloud_info.driver_type == "agentless":
             logger.info("remove hyper node...")

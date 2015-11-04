@@ -52,8 +52,8 @@ class AwsCloudDataHandler(object):
         cloud_dicts = self.__read_aws_cloud_info__()
         if cloud_id in cloud_dicts.keys():
             return dict_2_aws_cloud(cloud_dicts[cloud_id])
-        raise ReadCloudInfoFailure(reason="no such cloud, cloud_id=%s"
-                                          % cloud_id)
+        else:
+            return None
 
     def delete_aws_cloud(self, cloud_id):
         aws_cloud_data_file_lock.acquire()
