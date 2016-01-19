@@ -1335,7 +1335,237 @@ class CloudVpn(resource.Resource):
             return "162.3.130.247"
         if name == self.DATA_VPN_PRIVATE_IP:
             return "172.28.48.1"
+        
+class FusionSphereCloudVpn(resource.Resource):
+    PROPERTIES = (
+        CLOUD_TYPE,AZNAME, DC, SUFFIX, IS_API_VPN ,FS_VPN_EIP, FS_VPN_USER_NAME,FS_VPN_USER_PASSWORD,FS_API_SUBNET_ID, FS_API_VPN_IP,
+        FS_TUNNEL_SUBNET_ID,FS_TUNNEL_VPN_IP,CASCADED_IP,CASCADED_USER_NAME,CASCADED_USER_PASSWORD,FS_GATEWAY_IP,
+        V2V_GATEWAY_IP,KEYSTONE_URL,ASSOCIATE_USER_NAME,ASSOCIATE_USER_PASSWORD,ASSOCIATE_USER_DESCRIPTION,
+        ASSOCIATE_ADMIN_HPROJECT_ID,ASSOCIATE_ADMIN_PROJECT_ID,ASSOCIATE_SERVICE_HPROJECT_ID,
+        ASSOCIATE_SERVICE_PROJECT_ID,ENABLE_NETWORK_CROSS_CLOUDS,IS_HAVE_CEPH,CEPH_DEPLOY_IP,CEPH_USER_NAME,CEPH_USER_PASSWORD,CEPH_NODE1_IP,
+        CEPH_NODE2_IP,CEPH_NODE3_IP
+    ) = (
+        'CloudType', 'AZName', 'DC', 'Suffix', 'IsApiVpn', 'FsVpnEip', 'FsVpnUserName','FsVpnPassword',
+        'FsAPISubnetID', 'FsAPIVpnIP', 'FsTunnelSubnetID','FsTunnelVpnIP','CascadedIP','CascadedUserName',
+        'CascadedUserPassword','FsGatewayIP','V2vGatewayIP','KeystoneUrl',
+        'AssociateUserName','AssociateUserPassword','AssociateUserDescription','AssociateAdminHprojectID',
+        'AssociateAdminprojectID','AssociateSerivceHprojectID','AssociateSerivceprojectID','EnableNetworkCrossClouds',
+        'IsHaveCeph','CephDeployIP','CephUserName','CephUserPassword','CephNode1IP','CephNode2IP','CephNode3IP'
+    )
+    
+    properties_schema = {
+        CLOUD_TYPE: properties.Schema(
+            properties.Schema.STRING,
+            _('Type of cloud.')
+        ),  
+        AZNAME: properties.Schema(
+            properties.Schema.STRING,
+            _('Availability zone to launch the instance in.')
+        ),
+        DC: properties.Schema(
+            properties.Schema.STRING,
+            _('DC of cloud.')
+        ),
+        SUFFIX: properties.Schema(
+            properties.Schema.STRING,
+            _('Suffix of cloud name')
+        ),
+        IS_API_VPN: properties.Schema(
+            properties.Schema.BOOLEAN,
+            _('the cascading and cascaded network is using vpn')
+        ),
+        FS_VPN_EIP: properties.Schema(
+            properties.Schema.STRING,
+            _('Eip of vpn host.')
+        ),
+        FS_VPN_USER_NAME: properties.Schema(
+            properties.Schema.STRING,
+            _('Username of vpn host.')
+        ),
+        FS_VPN_USER_PASSWORD: properties.Schema(
+            properties.Schema.STRING,
+            _('Password of vpn host.')
+        ),
+        FS_API_SUBNET_ID: properties.Schema(
+            properties.Schema.STRING,
+            _('ID of the api subnet.')
+        ),
+        FS_API_VPN_IP: properties.Schema(
+            properties.Schema.STRING,
+            _('Ip address of the api vpn.')
+        ),
+        FS_TUNNEL_SUBNET_ID: properties.Schema(
+            properties.Schema.STRING,
+            _('ID of the tunnel bearing subnet.')
+        ),
+        FS_TUNNEL_VPN_IP: properties.Schema(
+            properties.Schema.STRING,
+            _('Ip address of the tunnel vpn.')
+        ),
+        CASCADED_IP: properties.Schema(
+            properties.Schema.STRING,
+            _('Ip address of the cascaded.')
+        ),
+        CASCADED_USER_NAME: properties.Schema(
+            properties.Schema.STRING,
+            _('user name of the cascaded.')
+        ),
+        CASCADED_USER_PASSWORD: properties.Schema(
+            properties.Schema.STRING,
+            _('user password of the cascaded.')
+        ),
+        FS_GATEWAY_IP: properties.Schema(
+            properties.Schema.STRING,
+            _('Ip address of fs_gateway.')
+        ),
+        V2V_GATEWAY_IP: properties.Schema(
+            properties.Schema.STRING,
+            _('Ip address of v2v_gateway.')
+        ),
+        KEYSTONE_URL: properties.Schema(
+            properties.Schema.STRING,
+            _('Keystone url of cascaded.')
+        ),
+        ASSOCIATE_USER_NAME: properties.Schema(
+            properties.Schema.STRING,
+            _('the admin user name of cascaded.')
+        ),
+        ASSOCIATE_USER_PASSWORD: properties.Schema(
+            properties.Schema.STRING,
+            _('the admin user password of cascaded.')
+        ),
+        ASSOCIATE_USER_DESCRIPTION: properties.Schema(
+            properties.Schema.STRING,
+            _('the admin user desciption of cascaded.')
+        ),
+        ASSOCIATE_ADMIN_HPROJECT_ID: properties.Schema(
+            properties.Schema.STRING,
+            _('the admin project of cascaded.')
+        ),
+        ASSOCIATE_ADMIN_PROJECT_ID: properties.Schema(
+            properties.Schema.STRING,
+            _('the admin project of cascading.')
+        ),
+        ASSOCIATE_SERVICE_HPROJECT_ID: properties.Schema(
+            properties.Schema.STRING,
+            _('the service project of cascaded.')
+        ),
+        ASSOCIATE_SERVICE_PROJECT_ID: properties.Schema(
+            properties.Schema.STRING,
+            _('the service project of cascading.')
+        ),
+        ENABLE_NETWORK_CROSS_CLOUDS: properties.Schema(
+            properties.Schema.BOOLEAN,
+            _('Enable network cross clouds.')
+        ),
+        IS_HAVE_CEPH: properties.Schema(
+            properties.Schema.BOOLEAN,
+            _('whether the cascaded have ceph ')
+        ),                
+        CEPH_DEPLOY_IP: properties.Schema(
+            properties.Schema.STRING,
+            _('the ip of ceph deploy node.')
+        ),
+        CEPH_USER_NAME: properties.Schema(
+            properties.Schema.STRING,
+            _('the username of ceph  node.')
+        ),
+        CEPH_USER_PASSWORD: properties.Schema(
+            properties.Schema.STRING,
+            _('the user password of ceph  node.')
+        ),
+        CEPH_NODE1_IP: properties.Schema(
+            properties.Schema.STRING,
+            _('the ip of ceph  node1.')
+        ),
+        CEPH_NODE2_IP: properties.Schema(
+            properties.Schema.STRING,
+            _('the ip of ceph  node2.')
+        ),
+        CEPH_NODE3_IP: properties.Schema(
+            properties.Schema.STRING,
+            _('the ip of ceph  node3.')
+        )
+    }
+    
+    def __init__(self, name, json_snippet, stack):
+        super(FusionSphereCloudVpn, self).__init__(name, json_snippet, stack)
+        print "FusionSphereCloudVpn init."
 
+    def handle_create(self):
+        #import pdb;pdb.set_trace()
+        cloud_type = self.properties.get(self.CLOUD_TYPE)
+        azName = self.properties.get(self.AZNAME)
+        dc = self.properties.get(self.DC)
+        suffix = self.properties.get(self.SUFFIX)
+        is_api_vpn = self.properties.get(self.IS_API_VPN)
+        fs_vpn_eip = self.properties.get(self.FS_VPN_EIP)
+        fs_vpn_username = self.properties.get(self.FS_VPN_USER_NAME)
+        fs_vpn_password = self.properties.get(self.FS_VPN_USER_PASSWORD)
+        fs_api_subnet_id = self.properties.get(self.FS_API_SUBNET_ID)
+        fs_api_vpn_ip = self.properties.get(self.FS_API_VPN_IP)
+        fs_tunnel_subnet_id = self.properties.get(self.FS_TUNNEL_SUBNET_ID)
+        fs_tunnel_vpn_ip = self.properties.get(self.FS_TUNNEL_VPN_IP)
+        cascaded_ip = self.properties.get(self.CASCADED_IP)
+        cascaded_user_name = self.properties.get(self.CASCADED_USER_NAME)
+        cascaded_user_password = self.properties.get(self.CASCADED_USER_PASSWORD)
+        fs_gateway_ip = self.properties.get(self.FS_GATEWAY_IP) 
+        v2v_gateway_ip = self.properties.get(self.V2V_GATEWAY_IP) 
+        keystone_url = self.properties.get(self.KEYSTONE_URL) 
+        associate_user_name = self.properties.get(self.ASSOCIATE_USER_NAME)
+        associate_user_password = self.properties.get(self.ASSOCIATE_USER_PASSWORD)
+        associate_user_description = self.properties.get(self.ASSOCIATE_USER_DESCRIPTION)
+        associate_admin_hproject_id = self.properties.get(self.ASSOCIATE_ADMIN_HPROJECT_ID)
+        associate_admin_project_id = self.properties.get(self.ASSOCIATE_ADMIN_PROJECT_ID)
+        associate_service_hproject_id = self.properties.get(self.ASSOCIATE_SERVICE_HPROJECT_ID)
+        associate_service_project_id = self.properties.get(self.ASSOCIATE_SERVICE_PROJECT_ID)
+        
+        access = self.properties.get(self.ENABLE_NETWORK_CROSS_CLOUDS)
+        
+        is_have_ceph = self.properties.get(self.IS_HAVE_CEPH)
+        ceph_deploy_ip = self.properties.get(self.CEPH_DEPLOY_IP)
+        ceph_user_name = self.properties.get(self.CEPH_USER_NAME)
+        ceph_user_password = self.properties.get(self.CEPH_USER_PASSWORD)
+        ceph_node1_ip = self.properties.get(self.CEPH_NODE1_IP)
+        ceph_node2_ip = self.properties.get(self.CEPH_NODE2_IP)
+        ceph_node3_ip = self.properties.get(self.CEPH_NODE3_IP)
+  
+        cloud_manager = service.CloudManager()
+        cloud_manager.add_fs_access_cloud(azName, dc,suffix, is_api_vpn,fs_vpn_eip,fs_vpn_username,fs_vpn_password,fs_api_subnet_id, 
+                                          fs_api_vpn_ip, fs_tunnel_subnet_id, fs_tunnel_vpn_ip,cascaded_ip=cascaded_ip,
+                                          cascaded_user_name=cascaded_user_name,cascaded_user_password=cascaded_user_password,
+                                          fs_gateway_ip=fs_gateway_ip,v2v_gateway_ip=v2v_gateway_ip,keystone_url=keystone_url,
+                                          associate_user_name=associate_user_name,associate_user_password=associate_user_password,
+                                          associate_user_description=associate_user_description,
+                                          associate_admin_hproject_id=associate_admin_hproject_id,
+                                          associate_admin_project_id=associate_admin_project_id,
+                                          associate_service_hproject_id=associate_service_hproject_id,
+                                          associate_service_project_id=associate_service_project_id,
+                                          access=access,is_have_ceph=is_have_ceph,ceph_deploy_ip=ceph_deploy_ip,
+                                          ceph_user_name =ceph_user_name,ceph_user_password=ceph_user_password,
+                                          ceph_node1_ip=ceph_node1_ip,
+                                          ceph_node2_ip=ceph_node2_ip,ceph_node3_ip=ceph_node3_ip
+                                          )
+        return True
+
+    def handle_update(self, json_snippet, tmpl_diff, prop_diff):
+        return True
+
+
+    def handle_delete(self):
+        azName = self.properties.get(self.AZNAME)
+        dc = self.properties.get(self.DC)
+        suffix = self.properties.get(self.SUFFIX)
+        is_api_vpn = self.properties.get(self.IS_API_VPN)
+        fs_vpn_eip = self.properties.get(self.FS_VPN_EIP)
+        fs_vpn_username = self.properties.get(self.FS_VPN_USER_NAME)
+        fs_vpn_password = self.properties.get(self.FS_VPN_USER_PASSWORD)
+        cascaded_ip = self.properties.get(self.CASCADED_IP)
+        fs_gateway_ip = self.properties.get(self.FS_GATEWAY_IP) 
+        service.CloudManager().delete_fs_access_cloud( azName, dc,suffix,is_api_vpn,fs_vpn_eip,fs_vpn_username,
+                                fs_vpn_password,cascaded_ip,fs_gateway_ip)
+        return True
+    
 
 def resource_mapping():
     return {
@@ -1344,5 +1574,6 @@ def resource_mapping():
         'OS::Heat::Cloud': Cloud,
         'OS::Heat::vCloudCloud': vCloudCloud,
         'OS::Heat::FusionsphereCloud': FusionsphereCloud,
-        'OS::Heat::CloudVpn': CloudVpn
+        'OS::Heat::CloudVpn': CloudVpn,
+        'OS::Heat::FusionSphereCloudVpn': FusionSphereCloudVpn
     }
