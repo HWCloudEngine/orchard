@@ -309,15 +309,27 @@ class AWSCascadedInstaller(object):
                                                     cascaded_tunnel_en)
         self.cascaded_vm_id = self.cascaded_vm.id
 
-        api_interface_id = None
         for interface in self.cascaded_vm.interfaces:
             if self.cascaded_api_ip == interface.private_ip_address:
-                api_interface_id = interface.id
-                break
+                self.cascaded_api_interface_id = interface.id
+                continue
+
+            if self.cascaded_base_ip == interface.private_ip_address:
+                self.cascaded_base_interface_id = interface.id
+                continue
+
+            if self.cascaded_debug_ip == interface.private_ip_address:
+                self.cascaded_debug_interface_id = interface.id
+                continue
+
+            if self.cascaded_tunnel_ip == interface.private_ip_address:
+                self.cascaded_tunnel_interface_id = interface.id
+                continue
 
         cascaded_eip = self.installer.allocate_elastic_address()
         self.installer.associate_elastic_address(
-                eip=cascaded_eip, network_interface_id=api_interface_id)
+                eip=cascaded_eip,
+                network_interface_id=self.cascaded_api_interface_id)
         self.cascaded_eip_public_ip = cascaded_eip.public_ip
         self.cascaded_eip_allocation_id = cascaded_eip.allocation_id
 

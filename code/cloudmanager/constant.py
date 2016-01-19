@@ -47,6 +47,7 @@ class Cascading(object):
     ADD_VPN_ROUTE_SCRIPT = "add_vpn_route.sh"
     KEYSTONE_ENDPOINT_SCRIPT = "create_keystone_endpoint.sh"
     ENABLE_OPENSTACK_SERVICE = "enable_openstack_service.sh"
+    UPDATE_PROXY_PARAMS = "modify_proxy_params.sh"
 
 
 class PatchesConstant(object):
@@ -78,7 +79,19 @@ class Proxy(object):
     LOCAL_NEUTRON_PROXY_DIR = "/home/hybrid_cloud/code/proxy/neutron_proxy"
     REMOTE_NEUTRON_PROXY_DIR = "/usr/lib64/python/site-packages/neutron/agent"
     L3_PROXY_CODE = "l3_proxy.py"
-
+    
+    LOCAL_CINDER_PROXY_DIR = "/home/hybrid_cloud/code/proxy/cinder_proxy"
+    REMOTE_CINDER_PROXY_DIR = "/usr/lib64/python2.6/site-packages/cinder/proxy"
+    CINDER_PROXY_CODE = "cinder_proxy.py"
+    
+class FsCascaded(object):
+    LOCAL_GLANCE_DIR = "/home/hybrid_cloud/code/cascaded/glance"
+    REMOTE_GLANCE_DIR = "/usr/lib64/python2.6/site-packages/glance/common"
+    GLANCE_CODE = "config.py"
+    
+    LOCAL_CINDER_DIR = "/home/hybrid_cloud/code/cascaded/cinder"
+    REMOTE_CINDER_DIR = "/usr/lib64/python2.6/site-packages/cinder/volume"
+    CINDER_VOLUME_API_CODE = "api.py"
 
 class FusionsphereConstant(object):
     ROOT = "root"

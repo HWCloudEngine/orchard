@@ -6,7 +6,7 @@ sys.path.append('/usr/bin/install_tool')
 import log
 import cps_server
 import threading
-import multiprocessing
+import install.aws_proxy_install as aws_installer
 
 proxy_manager_lock = threading.Lock()
 
@@ -45,12 +45,11 @@ def distribute_proxy():
             #             allocated_proxy_nums.append(num)
 
         if 0 == len(free_proxy_list):
+            aws_installer.install_aws_proxy()
             return None
 
-        # if 1 == len(free_proxy_list):
-        #     p = multiprocessing.Process(
-        #         target=proxy_installer.proxy_install)
-        #     p.start()
+        if 1 == len(free_proxy_list):
+            aws_installer.install_aws_proxy()
 
         right_proxy = free_proxy_list[0]
         num = 1

@@ -34,7 +34,6 @@ config_aws() {
     sed -i "s/%api_subnet_id%/${api_subnet_id}/" ${AWS_CONFIG_FILE}
     sed -i "s/%cgw_id%/${cgw_id}/" ${AWS_CONFIG_FILE}
     sed -i "s/%cgw_ip%/${cgw_ip}/" ${AWS_CONFIG_FILE}
-	echo "openstack_az_host_ip="${openstack_az_host_ip}
     sed -i "s/%openstack_az_host_ip%/${openstack_az_host_ip}/" ${AWS_CONFIG_FILE}
     echo "config aws success"
 }
@@ -96,7 +95,7 @@ if [ $# != 21 ]; then
     exit 1
 fi
 create_config_file
-config_aws ${1} ${2} ${3} ${4} ${5} ${6} ${7} ${8} ${9}
+config_aws ${1} ${2} ${3} ${4} ${16} ${6} ${7} ${8} ${19}
 config_route ${10} ${11} ${12} ${13}
 config_hypernode_api ${14} ${15} ${6} ${16} ${17} ${18} ${19} ${13}
 conf_cinder_keystone_auth_token ${20}

@@ -123,7 +123,7 @@ fi
 v2v_id=`awk -F "|" '{if($4~/ v2v /) print $2}' keystone_service_list.temp`
 if [ -z "${metering_id}" ]; then
     sleep 0.5s
-    metering_id=`keystone service-list | awk -F "|" '{if($4~/v2v/) print $2}'`
+    v2v_id=`keystone service-list | awk -F "|" '{if($4~/v2v/) print $2}'`
 fi
 
 echo "#!/usr/bin/sh" > ${RUN_SCRIPT}

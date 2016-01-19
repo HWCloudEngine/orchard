@@ -462,6 +462,7 @@ class ConfigCascading(object):
         updated_params = {'host': proxy_matched_host_region_name,
                           'neutron_region_name': proxy_matched_host_region_name,
                           'region_name': self.cascading_os_region_name,
+                          'agent_mode': 'dvr_snat',
                           'neutron_admin_auth_url': 'https://identity.%s:443/identity-admin/v2.0' % self.cascading_region}
 
         service = 'neutron'
@@ -551,7 +552,7 @@ class ConfigCascading(object):
     def config_cascading_nodes(self):
 
         # remove by q00222219
-        #self.add_role_for_cascading_node()
+        # self.add_role_for_cascading_node()
 
         log.info("start config cascading...")
 
@@ -671,18 +672,22 @@ def get_all_cascaded_hosts():
 
     return openstack_az_hosts + aws_az_hosts + vcloud_az_hosts
 
+
 def get_all_proxy_hosts():
     cps_business = CPSServiceBusiness()
     all_proxy_hosts = cps_business.get_all_proxy_nodes(proxy_match_region=CONF.DEFAULT.proxy_match_region)
     return all_proxy_hosts
 
+
 def get_os_region_name():
     cps_business = CPSServiceBusiness()
     return cps_business.get_os_region_name()
 
+
 def export_region():
     os_region_name = get_os_region_name()
     os.environ['OS_REGION_NAME'] = os_region_name
+
 
 def export_env():
     os.environ['OS_AUTH_URL'] = CONF.ENV.OS_AUTH_URL
@@ -713,7 +718,7 @@ if __name__ == '__main__':
     config_cascading = ConfigCascading()
     dispatch_patch_tool = DispatchPatchTool(proxy_match_region=CONF.DEFAULT.proxy_match_region)
 
-    #first to dispatch patch_tool to all cascaded node.
+    # first to dispatch patch_tool to all cascaded node.
     if mode == 'cascading':
         # reinforce done
         config_cascading.config_cascading_nodes()
@@ -722,7 +727,7 @@ if __name__ == '__main__':
         # remove by q00222219
         # all_cascaded_hosts = get_all_cascaded_hosts()
         # all_proxy_hosts = get_all_proxy_hosts()
-        #dispatch_patch_tool.dispatch_patches_tool_to_remote_nodes()
+        # dispatch_patch_tool.dispatch_patches_tool_to_remote_nodes()
         dispatch_patch_tool.dispatch_patches_tool_to_remote_nodes_ex(config_cascading.proxy_match_region)
 
         # Config cascaded node.
@@ -740,7 +745,7 @@ if __name__ == '__main__':
         dispatch_patch_tool.dispatch_cmd_to_all_proxy_nodes(executed_cmd)
         dispatch_patch_tool.dispatch_cmd_to_all_az_nodes(executed_cmd)
 
-    #this mode cascaded is use to be called in cascaded node remotely in cascading node.
+    # this mode cascaded is use to be called in cascaded node remotely in cascading node.
     elif mode == 'cascaded':
         config_cascading.config_cascaded_nodes()
     elif mode == 'check':
