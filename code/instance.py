@@ -1521,15 +1521,7 @@ class FusionSphereCloudVpn(resource.Resource):
         associate_service_project_id = self.properties.get(self.ASSOCIATE_SERVICE_PROJECT_ID)
         
         access = self.properties.get(self.ENABLE_NETWORK_CROSS_CLOUDS)
-        
-        is_have_ceph = self.properties.get(self.IS_HAVE_CEPH)
-        ceph_deploy_ip = self.properties.get(self.CEPH_DEPLOY_IP)
-        ceph_user_name = self.properties.get(self.CEPH_USER_NAME)
-        ceph_user_password = self.properties.get(self.CEPH_USER_PASSWORD)
-        ceph_node1_ip = self.properties.get(self.CEPH_NODE1_IP)
-        ceph_node2_ip = self.properties.get(self.CEPH_NODE2_IP)
-        ceph_node3_ip = self.properties.get(self.CEPH_NODE3_IP)
-  
+      
         cloud_manager = service.CloudManager()
         cloud_manager.add_fs_access_cloud(azName, dc,suffix, is_api_vpn,fs_vpn_eip,fs_vpn_username,fs_vpn_password,fs_api_subnet_id, 
                                           fs_api_vpn_ip, fs_tunnel_subnet_id, fs_tunnel_vpn_ip,cascaded_ip=cascaded_ip,
@@ -1541,11 +1533,7 @@ class FusionSphereCloudVpn(resource.Resource):
                                           associate_admin_project_id=associate_admin_project_id,
                                           associate_service_hproject_id=associate_service_hproject_id,
                                           associate_service_project_id=associate_service_project_id,
-                                          access=access,is_have_ceph=is_have_ceph,ceph_deploy_ip=ceph_deploy_ip,
-                                          ceph_user_name =ceph_user_name,ceph_user_password=ceph_user_password,
-                                          ceph_node1_ip=ceph_node1_ip,
-                                          ceph_node2_ip=ceph_node2_ip,ceph_node3_ip=ceph_node3_ip
-                                          )
+                                          access=access)
         return True
 
     def handle_update(self, json_snippet, tmpl_diff, prop_diff):

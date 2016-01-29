@@ -352,6 +352,7 @@ class CloudManager:
         
         access = kwargs.get('access')
         
+        logger.info("mapping user,project")
         user_id =  self.create_user(fsclient, associate_user_name, associate_user_password, \
                                     cloud_region, associate_user_description)
         
@@ -360,6 +361,7 @@ class CloudManager:
         associate_service_id = self.create_mapping(fsclient, 'project', associate_service_hproject_id, 
                             associate_service_project_id, cloud_region, user_id)
         
+        logger.info("update fsgateway config  add cascaded keystone_url")
         self._update_fsgateway_config( host_ip=self.cascading_api_ip,
                 user=constant.Cascading.ROOT,
                 passwd=constant.Cascading.ROOT_PWD,
@@ -468,7 +470,8 @@ class CloudManager:
         proxy_num = proxy_info["proxy_num"]
         logger.debug("proxy_id = %s, proxy_num = %s"
                      % (proxy_id, proxy_num))
-
+        
+        logger.info("config proxy ...")
         self._config_proxy(self.cascading_api_ip, proxy_info)
        
         cloud = fscloud.FsCloud(
@@ -499,6 +502,7 @@ class CloudManager:
         fs_gateway_register.register_availability_zone(azName, dc, suffix, cascaded_ip,
                                proxy_id, proxy_num, fs_gateway_ip, v2v_gateway_ip)
         
+        logger.info("enable openstack service")
         for i in range(3):
             try:
                 commonutils.execute_cmd_without_stdout(
@@ -520,15 +524,18 @@ class CloudManager:
         logger.info("enable openstack service success, cascading: %s"
                     % self.cascading_api_ip)
        
+        logger.info("update cinde_proxy_code")
         self._update_cinder_proxy_code(proxy_ip=cloud.cloud_proxy["manageip"],
                                    user=constant.Proxy.USER,
                                    passwd=constant.Proxy.PWD,
                                    proxy_num=cloud.cloud_proxy["proxy_num"])
         
-        
+        logger.info("update cascaded_code")
         self._update_cascaded_code(cascaded_ip, cascaded_user_name, cascaded_user_password)
         
-        self._enable_network_cross_fs_and_othercloud(cloud)
+        if access:
+            logger.info("enable network cross this cloud and othercloud")
+            self._enable_network_cross_fs_and_othercloud(cloud)
         
     
     @staticmethod
