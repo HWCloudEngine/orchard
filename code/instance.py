@@ -1342,15 +1342,13 @@ class FusionSphereCloudVpn(resource.Resource):
         FS_TUNNEL_SUBNET_ID,FS_TUNNEL_VPN_IP,CASCADED_IP,CASCADED_USER_NAME,CASCADED_USER_PASSWORD,FS_GATEWAY_IP,
         V2V_GATEWAY_IP,KEYSTONE_URL,ASSOCIATE_USER_NAME,ASSOCIATE_USER_PASSWORD,ASSOCIATE_USER_DESCRIPTION,
         ASSOCIATE_ADMIN_HPROJECT_ID,ASSOCIATE_ADMIN_PROJECT_ID,ASSOCIATE_SERVICE_HPROJECT_ID,
-        ASSOCIATE_SERVICE_PROJECT_ID,ENABLE_NETWORK_CROSS_CLOUDS,IS_HAVE_CEPH,CEPH_DEPLOY_IP,CEPH_USER_NAME,CEPH_USER_PASSWORD,CEPH_NODE1_IP,
-        CEPH_NODE2_IP,CEPH_NODE3_IP
+        ASSOCIATE_SERVICE_PROJECT_ID,ENABLE_NETWORK_CROSS_CLOUDS
     ) = (
         'CloudType', 'AZName', 'DC', 'Suffix', 'IsApiVpn', 'FsVpnEip', 'FsVpnUserName','FsVpnPassword',
         'FsAPISubnetID', 'FsAPIVpnIP', 'FsTunnelSubnetID','FsTunnelVpnIP','CascadedIP','CascadedUserName',
         'CascadedUserPassword','FsGatewayIP','V2vGatewayIP','KeystoneUrl',
         'AssociateUserName','AssociateUserPassword','AssociateUserDescription','AssociateAdminHprojectID',
-        'AssociateAdminprojectID','AssociateSerivceHprojectID','AssociateSerivceprojectID','EnableNetworkCrossClouds',
-        'IsHaveCeph','CephDeployIP','CephUserName','CephUserPassword','CephNode1IP','CephNode2IP','CephNode3IP'
+        'AssociateAdminprojectID','AssociateSerivceHprojectID','AssociateSerivceprojectID','EnableNetworkCrossClouds'
     )
     
     properties_schema = {
@@ -1457,35 +1455,7 @@ class FusionSphereCloudVpn(resource.Resource):
         ENABLE_NETWORK_CROSS_CLOUDS: properties.Schema(
             properties.Schema.BOOLEAN,
             _('Enable network cross clouds.')
-        ),
-        IS_HAVE_CEPH: properties.Schema(
-            properties.Schema.BOOLEAN,
-            _('whether the cascaded have ceph ')
-        ),                
-        CEPH_DEPLOY_IP: properties.Schema(
-            properties.Schema.STRING,
-            _('the ip of ceph deploy node.')
-        ),
-        CEPH_USER_NAME: properties.Schema(
-            properties.Schema.STRING,
-            _('the username of ceph  node.')
-        ),
-        CEPH_USER_PASSWORD: properties.Schema(
-            properties.Schema.STRING,
-            _('the user password of ceph  node.')
-        ),
-        CEPH_NODE1_IP: properties.Schema(
-            properties.Schema.STRING,
-            _('the ip of ceph  node1.')
-        ),
-        CEPH_NODE2_IP: properties.Schema(
-            properties.Schema.STRING,
-            _('the ip of ceph  node2.')
-        ),
-        CEPH_NODE3_IP: properties.Schema(
-            properties.Schema.STRING,
-            _('the ip of ceph  node3.')
-        )
+        ) 
     }
     
     def __init__(self, name, json_snippet, stack):
