@@ -716,7 +716,7 @@ class CloudManager:
                 password=passwd,
                 cmd='cd %(dir)s; sh %(script)s %(action)s %(region)s %(keystone_url)s'
                     % {"dir":constant.Cascading.REMOTE_SCRIPTS_DIR,
-                       "script":'fs-gateway-conf-update.sh',
+                       "script":'fs_gateway_conf_update.sh',
                        "action": action,
                        "region": region,
                        "keystone_url": keystone_url})
