@@ -368,96 +368,96 @@ class CloudManager:
                 action ='add', region=cloud_region,keystone_url=keystone_url)
         
         
-        vpn_conn_name = {"api_conn_name": cloud_id + '-api',
-                         "tunnel_conn_name": cloud_id + '-tunnel'}
-        
-        
-        logger.info("config local vpn thread")
-        local_vpn_cf = VpnConfiger(
-                    host_ip=self.local_vpn_ip,
-                    user=constant.VpnConstant.VPN_ROOT,
-                    password=constant.VpnConstant.VPN_ROOT_PWD)
-        if is_api_vpn :
-            local_vpn_cf.register_add_conns(
-                    tunnel_name=vpn_conn_name["api_conn_name"],
-                    left_public_ip=self.local_vpn_public_gw,
-                    left_subnet=self.local_api_subnet,
-                    right_public_ip=fs_vpn_eip,
-                    right_subnet=fs_api_subnet_id)
-     
-        local_vpn_cf.register_add_conns(
-                tunnel_name=vpn_conn_name["tunnel_conn_name"],
-                left_public_ip=self.local_vpn_public_gw,
-                left_subnet=self.local_tunnel_subnet,
-                right_public_ip=fs_vpn_eip,
-                right_subnet=fs_tunnel_subnet_id)
- 
-        self.local_vpn_thread = threading.Thread(
-                target=local_vpn_cf.do_config)
-        self.local_vpn_thread.start()
-            
- 
-        logger.info("config fusionsphere cloud vpn thread")
-        cloud_vpn_cf = VpnConfiger(
-                host_ip=fs_vpn_eip,
-                user=fs_vpn_username,
-                password=fs_vpn_password)
-        
-        if is_api_vpn :
-            cloud_vpn_cf.register_add_conns(
-                    tunnel_name=vpn_conn_name["api_conn_name"],
-                    left_public_ip=fs_vpn_eip,
-                    left_subnet=fs_api_subnet_id,
-                    right_public_ip=self.local_vpn_public_gw,
-                    right_subnet=self.local_api_subnet)
-  
-        cloud_vpn_cf.register_add_conns(
-                tunnel_name=vpn_conn_name["tunnel_conn_name"],
-                left_public_ip=fs_vpn_eip,
-                left_subnet=fs_tunnel_subnet_id,
-                right_public_ip=self.local_vpn_public_gw,
-                right_subnet=self.local_tunnel_subnet)
-  
-        self.cloud_vpn_thread = threading.Thread(
-                target=cloud_vpn_cf.do_config)
-        self.cloud_vpn_thread.start()
- 
-        if is_api_vpn :
-            logger.info("add route to aws on cascading ...")
-            self._add_vpn_route(
-                    host_ip=self.cascading_api_ip,
-                    user=constant.Cascading.ROOT,
-                    passwd=constant.Cascading.ROOT_PWD,
-                    access_cloud_api_subnet=fs_api_subnet_id,
-                    api_gw=self.local_vpn_api_ip,
-                    access_cloud_tunnel_subnet=fs_tunnel_subnet_id,
-                    tunnel_gw=self.local_vpn_tunnel_ip)
-            
-            logger.info("add route to cascaded  ...")
-            self._add_vpn_route(
-                    host_ip=cascaded_ip,
-                    user=cascaded_user_name,
-                    passwd=cascaded_user_password,
-                    access_cloud_api_subnet=self.local_api_subnet,
-                    api_gw=fs_api_vpn_ip,
-                    access_cloud_tunnel_subnet=self.local_tunnel_subnet,
-                    tunnel_gw=fs_tunnel_vpn_ip)
-        else:
-            logger.info("add route to aws on cascading ...")
-            self._add_vpn_tunnel_route(
-                    host_ip=self.cascading_api_ip,
-                    user=constant.Cascading.ROOT,
-                    passwd=constant.Cascading.ROOT_PWD,
-                    access_cloud_tunnel_subnet=fs_tunnel_subnet_id,
-                    tunnel_gw=self.local_vpn_tunnel_ip)
-            
-            logger.info("add route to cascaded  ...")
-            self._add_vpn_tunnel_route(
-                    host_ip=cascaded_ip,
-                    user=cascaded_user_name,
-                    passwd=cascaded_user_password,
-                    access_cloud_tunnel_subnet=self.local_tunnel_subnet,
-                    tunnel_gw=fs_tunnel_vpn_ip)
+        # vpn_conn_name = {"api_conn_name": cloud_id + '-api',
+        #                  "tunnel_conn_name": cloud_id + '-tunnel'}
+        #
+        #
+        # logger.info("config local vpn thread")
+        # local_vpn_cf = VpnConfiger(
+        #             host_ip=self.local_vpn_ip,
+        #             user=constant.VpnConstant.VPN_ROOT,
+        #             password=constant.VpnConstant.VPN_ROOT_PWD)
+        # if is_api_vpn :
+        #     local_vpn_cf.register_add_conns(
+        #             tunnel_name=vpn_conn_name["api_conn_name"],
+        #             left_public_ip=self.local_vpn_public_gw,
+        #             left_subnet=self.local_api_subnet,
+        #             right_public_ip=fs_vpn_eip,
+        #             right_subnet=fs_api_subnet_id)
+        #
+        # local_vpn_cf.register_add_conns(
+        #         tunnel_name=vpn_conn_name["tunnel_conn_name"],
+        #         left_public_ip=self.local_vpn_public_gw,
+        #         left_subnet=self.local_tunnel_subnet,
+        #         right_public_ip=fs_vpn_eip,
+        #         right_subnet=fs_tunnel_subnet_id)
+        #
+        # self.local_vpn_thread = threading.Thread(
+        #         target=local_vpn_cf.do_config)
+        # self.local_vpn_thread.start()
+        #
+        #
+        # logger.info("config fusionsphere cloud vpn thread")
+        # cloud_vpn_cf = VpnConfiger(
+        #         host_ip=fs_vpn_eip,
+        #         user=fs_vpn_username,
+        #         password=fs_vpn_password)
+        #
+        # if is_api_vpn :
+        #     cloud_vpn_cf.register_add_conns(
+        #             tunnel_name=vpn_conn_name["api_conn_name"],
+        #             left_public_ip=fs_vpn_eip,
+        #             left_subnet=fs_api_subnet_id,
+        #             right_public_ip=self.local_vpn_public_gw,
+        #             right_subnet=self.local_api_subnet)
+        #
+        # cloud_vpn_cf.register_add_conns(
+        #         tunnel_name=vpn_conn_name["tunnel_conn_name"],
+        #         left_public_ip=fs_vpn_eip,
+        #         left_subnet=fs_tunnel_subnet_id,
+        #         right_public_ip=self.local_vpn_public_gw,
+        #         right_subnet=self.local_tunnel_subnet)
+        #
+        # self.cloud_vpn_thread = threading.Thread(
+        #         target=cloud_vpn_cf.do_config)
+        # self.cloud_vpn_thread.start()
+        #
+        # if is_api_vpn :
+        #     logger.info("add route to aws on cascading ...")
+        #     self._add_vpn_route(
+        #             host_ip=self.cascading_api_ip,
+        #             user=constant.Cascading.ROOT,
+        #             passwd=constant.Cascading.ROOT_PWD,
+        #             access_cloud_api_subnet=fs_api_subnet_id,
+        #             api_gw=self.local_vpn_api_ip,
+        #             access_cloud_tunnel_subnet=fs_tunnel_subnet_id,
+        #             tunnel_gw=self.local_vpn_tunnel_ip)
+        #
+        #     logger.info("add route to cascaded  ...")
+        #     self._add_vpn_route(
+        #             host_ip=cascaded_ip,
+        #             user=cascaded_user_name,
+        #             passwd=cascaded_user_password,
+        #             access_cloud_api_subnet=self.local_api_subnet,
+        #             api_gw=fs_api_vpn_ip,
+        #             access_cloud_tunnel_subnet=self.local_tunnel_subnet,
+        #             tunnel_gw=fs_tunnel_vpn_ip)
+        # else:
+        #     logger.info("add route to aws on cascading ...")
+        #     self._add_vpn_tunnel_route(
+        #             host_ip=self.cascading_api_ip,
+        #             user=constant.Cascading.ROOT,
+        #             passwd=constant.Cascading.ROOT_PWD,
+        #             access_cloud_tunnel_subnet=fs_tunnel_subnet_id,
+        #             tunnel_gw=self.local_vpn_tunnel_ip)
+        #
+        #     logger.info("add route to cascaded  ...")
+        #     self._add_vpn_tunnel_route(
+        #             host_ip=cascaded_ip,
+        #             user=cascaded_user_name,
+        #             passwd=cascaded_user_password,
+        #             access_cloud_tunnel_subnet=self.local_tunnel_subnet,
+        #             tunnel_gw=fs_tunnel_vpn_ip)
          
         # config proxy on cascading host
         if proxy_info is None:
