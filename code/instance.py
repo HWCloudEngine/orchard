@@ -16,7 +16,7 @@ import copy
 from oslo.config import cfg
 import six
 
-from cloudmanager import service
+from code.cloudmanager import service
 
 from heat.common import exception
 from heat.common.i18n import _
