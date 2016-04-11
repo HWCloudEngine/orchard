@@ -16,16 +16,22 @@ class VpnConstant(object):
     VPN_ROOT_PWD = "Galax0088"
     AWS_VPN_ROOT = "root"
     AWS_VPN_ROOT_PWD = "Galax0088"
+    VCLOUD_VPN_ROOT = "root"
+    VCLOUD_VPN_ROOT_PWD = "Galax0088"
     REMOTE_SCRIPTS_DIR = "/root/ipsec_config/"
     LIST_TUNNEL_SCRIPT = "list_tunnel.sh"
     ADD_TUNNEL_SCRIPT = "add_tunnel_ex.sh"
     REMOVE_TUNNEL_SCRIPT = "remove_tunnel.sh"
+    REMOTE_ROUTE_SCRIPTS_DIR = "/home/hybrid_cloud/scripts/vpn/"
+    ADD_VPN_ROUTE_SCRIPT = "add_vpn_route.sh"
 
 
 class Cascaded(object):
     ROOT = "root"
     ROOT_PWD = "cnp200@HW"
     REMOTE_SCRIPTS_DIR = "/root/cloud_manager/cascaded/"
+    REMOTE_VCLOUD_SCRIPTS_DIR = "/home/hybrid_cloud/scripts/cascaded/"
+    CONFIG_VCLOUD_SCRIPT = "config_vcloud.sh"
     MODIFY_PROXY_SCRIPT = "modify_proxy.sh"
     MODIFY_CASCADED_SCRIPT = "modify_cascaded_domain.sh"
     MODIFY_CASCADED_SCRIPT_PY = "cascaded_handler.py"

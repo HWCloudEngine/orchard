@@ -7,7 +7,8 @@ install() {
     cp -r ./etc/hybrid_cloud/* /home/hybrid_cloud/
 
     echo "copy code to '/usr/lib64/python2.6/site-packages/heat/engine/resources/'..."
-    cp -rf ./code/* /usr/lib64/python2.6/site-packages/heat/engine/resources/
+    cp -rf ./code/cloudmanager /usr/lib64/python2.6/site-packages/heat/engine/resources/
+    cp -rf ./code/instance.py /usr/lib64/python2.6/site-packages/heat/engine/resources/
 
     echo "modify permissions..."
     chown -R openstack:openstack /home/hybrid_cloud

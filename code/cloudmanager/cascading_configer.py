@@ -2,12 +2,12 @@
 __author__ = 'q00222219@huawei'
 
 import time
-import log as logger
+from heat.openstack.common import log as logging
 
 import commonutils
 import constant
 import exception
-
+LOG = logging.getLogger(__name__)
 
 class CascadingConfiger(object):
     def __init__(self, cascading_ip, user, password, cascaded_domain,
@@ -21,7 +21,7 @@ class CascadingConfiger(object):
 
     def do_config(self):
         start_time = time.time()
-        logger.info("start config cascading, cascading: %s" % self.cascading_ip)
+        LOG.info("start config cascading, cascading: %s" % self.cascading_ip)
 
         # modify dns server address
         address = "/%(cascaded_domain)s/%(cascaded_ip)s" \
@@ -41,12 +41,12 @@ class CascadingConfiger(object):
                            "address": address})
                 break
             except exception.SSHCommandFailure as e:
-                logger.error("modify cascading dns address error, cascaded: "
+                LOG.error("modify cascading dns address error, cascaded: "
                              "%s, error: %s"
                              % (self.cascaded_domain, e.format_message()))
                 time.sleep(1)
 
-        logger.info(
+        LOG.info(
             "config cascading dns address success, cascading: %s"
             % self.cascading_ip)
 
@@ -66,12 +66,12 @@ class CascadingConfiger(object):
                            "v2v_gw": self.v2v_gw})
                 break
             except exception.SSHCommandFailure as e:
-                logger.error(
+                LOG.error(
                     "create keystone endpoint error, cascaded: %s, error: %s"
                     % (self.cascaded_domain, e.format_message()))
                 time.sleep(1)
 
-        logger.info("config cascading keystone success, cascading: %s"
+        LOG.info("config cascading keystone success, cascading: %s"
                     % self.cascading_ip)
 
         for i in range(3):
@@ -87,13 +87,13 @@ class CascadingConfiger(object):
                            "cascaded_domain": self.cascaded_domain})
                 break
             except exception.SSHCommandFailure as e:
-                logger.error(
+                LOG.error(
                     "enable openstack service error, cascaded: %s, error: %s"
                     % (self.cascaded_domain, e.format_message()))
                 time.sleep(1)
 
-        logger.info("enable openstack service success, cascading: %s"
+        LOG.info("enable openstack service success, cascading: %s"
                     % self.cascading_ip)
         cost_time = time.time() - start_time
-        logger.info("config cascading success, cascading: %s, cost time: %d"
+        LOG.info("config cascading success, cascading: %s, cost time: %d"
                     % (self.cascading_ip, cost_time))

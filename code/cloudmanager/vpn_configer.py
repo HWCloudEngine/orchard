@@ -2,10 +2,12 @@
 __author__ = 'q00222219@huawei'
 
 import time
-import log as logger
+from heat.openstack.common import log as logging
 
 from vpn import VPN
 import commonutils
+
+LOG = logging.getLogger(__name__)
 
 
 class VpnConfiger(object):
@@ -31,12 +33,12 @@ class VpnConfiger(object):
     def do_config(self):
         # check status
         start_time = time.time()
-        logger.info("check vpn status, vpn: %s" % self.host_ip)
+        LOG.info("check vpn status, vpn: %s" % self.host_ip)
         commonutils.check_host_status(self.host_ip, self.user, self.password,
                                       retry_time=500, interval=1)
 
-        logger.info("vpn is ready, vpn: %s" % self.host_ip)
-        logger.info("start config vpn, vpn: %s, add_conns: %s"
+        LOG.info("vpn is ready, vpn: %s" % self.host_ip)
+        LOG.info("start config vpn, vpn: %s, add_conns: %s"
                     % (self.host_ip, self.add_conns))
         # add_conn
         vpn = VPN(public_ip=self.host_ip, user=self.user,
@@ -50,9 +52,9 @@ class VpnConfiger(object):
                                right=conn["right_public_ip"],
                                right_subnet=conn["right_subnet"])
             except Exception as e:
-                logger.error("add conn error, vpn: %s, conn: %s, error: %s"
+                LOG.error("add conn error, vpn: %s, conn: %s, error: %s"
                              % (self.host_ip, conn, e.message))
-        logger.info("add conns success, vpn: %s, conns: %s"
+        LOG.info("add conns success, vpn: %s, conns: %s"
                     % (self.host_ip, self.add_conns))
 
         # delete conns
@@ -60,17 +62,17 @@ class VpnConfiger(object):
             try:
                 vpn.remove_tunnel(conn)
             except Exception as e:
-                logger.error("delete conn error, vpn: %s, conn: %s, error: %s"
+                LOG.error("delete conn error, vpn: %s, conn: %s, error: %s"
                              % (self.host_ip, conn, e.message))
-        logger.info("delete conns success, vpn: %s, conns: %s"
+        LOG.info("delete conns success, vpn: %s, conns: %s"
                     % (self.host_ip, self.delete_conns))
 
         try:
             vpn.restart_ipsec_service()
         except Exception as e:
-            logger.error("restart ipsec error, vpn: %s, error: %s"
+            LOG.error("restart ipsec error, vpn: %s, error: %s"
                          % (self.host_ip, e.message))
 
         cost_time = time.time() - start_time
-        logger.info("config vpn success, vpn: %s, cost time: %d"
+        LOG.info("config vpn success, vpn: %s, cost time: %d"
                     % (self.host_ip, cost_time))

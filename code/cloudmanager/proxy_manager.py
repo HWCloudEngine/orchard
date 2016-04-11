@@ -3,13 +3,18 @@ __author__ = 'q00222219@huawei'
 
 import sys
 sys.path.append('/usr/bin/install_tool')
-import log
+from heat.openstack.common import log as logging
+import log as logger
 import cps_server
 import threading
 import install.aws_proxy_install as aws_installer
 
 proxy_manager_lock = threading.Lock()
 
+
+LOG = logging.getLogger(__name__)
+
+logger.init('CloudManager')
 
 def distribute_proxy():
     proxy_manager_lock.acquire()
@@ -25,31 +30,32 @@ def distribute_proxy():
                           "manageip": host["manageip"]
                           }
 
-            proxy_free = True
-            for role in host["roles"]:
-                if "compute-proxy" in role:
-                    num = role.split("-")[1]
-                    allocated_proxy_nums.append(num)
-                    proxy_free = False
-                    break
-
-            if proxy_free:
-                free_proxy_list.append(proxy_info)
-
-            # if 1 == len(host["roles"]) and "normal" == host["status"]:
+            # proxy_free = True
+            # for role in host["roles"]:
+            #     if "compute-proxy" in role:
+            #         num = role.split("-")[1]
+            #         allocated_proxy_nums.append(num)
+            #         proxy_free = False
+            #         break
+            #
+            # if proxy_free:
             #     free_proxy_list.append(proxy_info)
-            # else:
-            #     for role in host["roles"]:
-            #         if "compute-proxy" in role:
-            #             num = role.split("-")[1]
-            #             allocated_proxy_nums.append(num)
+
+            if len(host["roles"]) <= 2 and "normal" == host["status"]:
+                free_proxy_list.append(proxy_info)
+            else:
+                for role in host["roles"]:
+                    if "compute-proxy" in role:
+                        num = role.split("-")[1]
+                        allocated_proxy_nums.append(num)
 
         if 0 == len(free_proxy_list):
             aws_installer.install_aws_proxy()
             return None
 
-        if 1 == len(free_proxy_list):
-            aws_installer.install_aws_proxy()
+        #TODO£¨lrx£©:deprecated without aws,modify later
+        # if 1 == len(free_proxy_list):
+        #     aws_installer.install_aws_proxy()
 
         right_proxy = free_proxy_list[0]
         num = 1
@@ -67,7 +73,7 @@ def distribute_proxy():
 
         return right_proxy
     except Exception as e:
-        log.error("distribute proxy error, error: %s" % e.message)
+        LOG.error("distribute proxy error, error: %s" % e.message)
     finally:
         proxy_manager_lock.release()
 

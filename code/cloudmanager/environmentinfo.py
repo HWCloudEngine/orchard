@@ -3,16 +3,29 @@ __author__ = 'q00222219@huawei'
 
 import os
 import json
+import sys
+sys.path.append('..')
 
 from exception import *
+from heat.openstack.common import log as logging
 
-env_data_file = os.path.join("/home/hybrid_cloud/conf",
-                             'environment.conf')
+LOG = logging.getLogger(__name__)
 
 
-def read_environment_info():
+#env_data_file = os.path.join("/home/hybrid_cloud/conf", 'environment.conf')
+env_data_dir = '/home/hybrid_cloud/conf'
+end_data_file = 'environment.conf'
+
+
+def read_environment_info(cloud_type):
+    env_data_file = None
+    if(cloud_type == 'VCLOUD'):
+        env_data_file = os.path.join(env_data_dir+'/vcloud',end_data_file)
+    elif(cloud_type == 'AWS'):
+        env_data_file = os.path.join(env_data_dir+'/aws',end_data_file)
+
     if not os.path.exists(env_data_file):
-        logger.error("read %s : No such file." % env_data_file)
+        LOG.error("read %s : No such file." % env_data_file)
         raise ReadEnvironmentInfoFailure(reason="read %s : No such file."
                                                 % env_data_file)
     with open(env_data_file, 'r+') as fd:
@@ -20,7 +33,13 @@ def read_environment_info():
         return json.loads(tmp)
 
 
-def write_environment_info():
+def write_environment_info(cloud_type):
+    env_data_file = None
+    if(cloud_type == 'VCLOUD'):
+        env_data_file = os.path.join(env_data_dir+'/vcloud',end_data_file)
+    elif(cloud_type == 'AWS'):
+        env_data_file = os.path.join(env_data_dir+'/aws',end_data_file)
+
     environment_info = {"env": "/root/adminrc",
                         "cascading_api_ip": "162.3.121.2",
                         "cascading_domain": "cloud.hybrid.huawei.com",

@@ -16,7 +16,8 @@ import copy
 from oslo.config import cfg
 import six
 
-from code.cloudmanager import service
+from heat.engine.resources.cloudmanager import service
+from heat.engine.resources.cloudmanager import service_vcloud as vcloudservice
 
 from heat.common import exception
 from heat.common.i18n import _
@@ -1104,12 +1105,12 @@ class Cloud(resource.Resource):
 
 class vCloudCloud(resource.Resource):
     PROPERTIES = (
-        CLOUD_TYPE, AZNAME, VCLOUD_URL, VCLOUD_ORG, VCLOUD_VDC, USER_NAME,
-        PASSWD,
+        CLOUD_TYPE, AZNAME, AVAILABILITY_ZONE, VCLOUD_URL, VCLOUD_ORG, VCLOUD_VDC, VCLOUD_EDGEGW, USER_NAME,
+        PASSWD, REGION_NAME, DRIVER_TYPE,
         ENABLE_NETWORK_CROSS_CLOUDS
     ) = (
-        'CloudType', 'AZName', 'VcloudUrl', 'vCloudOrg', 'VcloudVdc',
-        'UserName', 'PassWd',
+        'CloudType', 'AZName', 'AvailabilityZone', 'VcloudUrl', 'VcloudOrg', 'VcloudVdc','VcloudEdgegw',
+        'UserName', 'PassWd', 'RegionName', 'DriverType',
         'EnableNetworkCrossClouds'
     )
 
@@ -1121,6 +1122,10 @@ class vCloudCloud(resource.Resource):
         AZNAME: properties.Schema(
             properties.Schema.STRING,
             _('Optional Nova keypair name.')
+        ),
+        AVAILABILITY_ZONE: properties.Schema(
+            properties.Schema.STRING,
+            _('Availability zone of the cloud.')
         ),
         VCLOUD_URL: properties.Schema(
             properties.Schema.STRING,
@@ -1134,6 +1139,10 @@ class vCloudCloud(resource.Resource):
             properties.Schema.STRING,
             _('Availability zone to launch the instance in.')
         ),
+        VCLOUD_EDGEGW: properties.Schema(
+            properties.Schema.STRING,
+            _('Availability zone to launch the instance in.')
+        ),
         USER_NAME: properties.Schema(
             properties.Schema.STRING,
             _('Availability zone to launch the instance in.')
@@ -1141,6 +1150,14 @@ class vCloudCloud(resource.Resource):
         PASSWD: properties.Schema(
             properties.Schema.STRING,
             _('Availability zone to launch the instance in.')
+        ),
+        REGION_NAME: properties.Schema(
+            properties.Schema.STRING,
+            _('Availability zone to launch the instance in.')
+        ),
+        DRIVER_TYPE: properties.Schema(
+            properties.Schema.STRING,
+            _('Network driver type, agent or agentless.')
         ),
         ENABLE_NETWORK_CROSS_CLOUDS: properties.Schema(
             properties.Schema.STRING,
@@ -1153,13 +1170,53 @@ class vCloudCloud(resource.Resource):
         print "This is for adding vclouds"
 
     def handle_create(self):
-        print "This is for create vclouds"
+
+        cloud_params = {}
+        cloud_params['cloud_type'] = self.properties.get(self.CLOUD_TYPE)
+        cloud_params['azname'] = self.properties.get(self.AZNAME)
+        cloud_params['availabilityzone'] = self.properties.get(self.AVAILABILITY_ZONE)
+        cloud_params['vcloud_url'] = self.properties.get(self.VCLOUD_URL)
+        cloud_params['vcloud_org'] = self.properties.get(self.VCLOUD_ORG)
+        cloud_params['vcloud_vdc'] = self.properties.get(self.VCLOUD_VDC)
+        cloud_params['vcloud_edgegw'] = self.properties.get(self.VCLOUD_EDGEGW)
+        cloud_params['username'] = self.properties.get(self.USER_NAME)
+        cloud_params['passwd'] = self.properties.get(self.PASSWD)
+        cloud_params['region_name'] = self.properties.get(self.REGION_NAME)
+        cloud_params['driver_type'] = self.properties.get(self.DRIVER_TYPE)
+        cloud_params['access'] = self.properties.get(self.ENABLE_NETWORK_CROSS_CLOUDS)
+
+
+        cloud_manager = vcloudservice.CloudManager(cloud_params)
+
+        return cloud_manager.add_cloud()
+
+
 
     def handle_update(self, json_snippet, tmpl_diff, prop_diff):
         print "This is for update vclouds"
 
     def handle_delete(self):
-        print "This is for delete vclouds"
+        cloud_params = {}
+        cloud_params['cloud_type'] = self.properties.get(self.CLOUD_TYPE)
+        cloud_params['azname'] = self.properties.get(self.AZNAME)
+        cloud_params['availabilityzone'] = self.properties.get(self.AVAILABILITY_ZONE)
+        cloud_params['vcloud_url'] = self.properties.get(self.VCLOUD_URL)
+        cloud_params['vcloud_org'] = self.properties.get(self.VCLOUD_ORG)
+        cloud_params['vcloud_vdc'] = self.properties.get(self.VCLOUD_VDC)
+        cloud_params['vcloud_edgegw'] = self.properties.get(self.VCLOUD_EDGEGW)
+        cloud_params['username'] = self.properties.get(self.USER_NAME)
+        cloud_params['passwd'] = self.properties.get(self.PASSWD)
+        cloud_params['region_name'] = self.properties.get(self.REGION_NAME)
+        cloud_params['driver_type'] = self.properties.get(self.DRIVER_TYPE)
+        cloud_params['access'] = self.properties.get(self.ENABLE_NETWORK_CROSS_CLOUDS)
+
+
+	    
+        cloud_manager = vcloudservice.CloudManager(cloud_params)
+
+        return cloud_manager.delete_cloud()
+
+
 
 
 class FusionsphereCloud(resource.Resource):

@@ -4,6 +4,9 @@ __author__ = 'q00222219@huawei'
 from commonutils import *
 from constant import *
 
+from heat.openstack.common import log as logging
+
+LOG = logging.getLogger(__name__)
 
 class VPN(object):
 
@@ -18,7 +21,7 @@ class VPN(object):
         self.pass_word = pass_word
 
     def add_tunnel(self, tunnel_name, left, left_subnet, right, right_subnet):
-        logger.info("add a new tunnel, vpn = % s, tunnel = % s"
+        LOG.info("add a new tunnel, vpn = % s, tunnel = % s"
                     % (self.public_ip, tunnel_name))
 
         execute_cmd_without_stdout(
@@ -36,7 +39,7 @@ class VPN(object):
         return True
 
     def remove_tunnel(self, tunnel_name):
-        logger.info("remove tunnel, vpn = % s, tunnel = % s"
+        LOG.info("remove tunnel, vpn = % s, tunnel = % s"
                     % (self.public_ip, tunnel_name))
 
         execute_cmd_without_stdout(
@@ -50,7 +53,7 @@ class VPN(object):
         return True
 
     def list_tunnel(self):
-        logger.info("list tunnel, vpn = % s"
+        LOG.info("list tunnel, vpn = % s"
                     % self.public_ip)
         tunnel_list = execute_cmd_with_stdout(
             host=self.public_ip,
@@ -62,7 +65,7 @@ class VPN(object):
         return tunnel_list.strip("\n").split(',')
 
     def restart_ipsec_service(self):
-        logger.info("restart ipsec service, vpn = % s"
+        LOG.info("restart ipsec service, vpn = % s"
                     % self.public_ip)
         execute_cmd_without_stdout(
             host=self.public_ip,
@@ -72,7 +75,7 @@ class VPN(object):
         return True
 
     def up_tunnel(self, *tunnel_name):
-        logger.info("up tunnel, vpn = % s"
+        LOG.info("up tunnel, vpn = % s"
                     % self.public_ip)
         cmd = ""
         for name in tunnel_name:

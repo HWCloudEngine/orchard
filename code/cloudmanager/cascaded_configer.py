@@ -2,11 +2,14 @@
 __author__ = 'q00222219@huawei'
 
 import time
-import log as logger
+from heat.openstack.common import log as logging
 
 import commonutils
 import constant
 import exception
+ 
+
+LOG = logging.getLogger(__name__)
 
 
 class CascadedConfiger(object):
@@ -22,7 +25,8 @@ class CascadedConfiger(object):
 
     def do_config(self):
         start_time = time.time()
-        logger.info("start config cascaded, cascaded: %s" % self.domain)
+         
+        LOG.info("start config cascaded, cascaded: %s" % self.domain)
         # wait cascaded tunnel can visit
         commonutils.check_host_status(host=self.tunnel_ip,
                                       user=self.user,
@@ -37,7 +41,7 @@ class CascadedConfiger(object):
         self._config_az_cascaded()
 
         cost_time = time.time() - start_time
-        logger.info("first config success,  cascaded: %s, cost time: %d"
+        LOG.info("first config success,  cascaded: %s, cost time: %d"
                     % (self.domain, cost_time))
 
         # check config result
@@ -50,22 +54,23 @@ class CascadedConfiger(object):
                     password=constant.Cascaded.ROOT_PWD,
                     retry_time=15,
                     interval=1)
-                logger.info("cascaded api is ready..")
+                LOG.info("cascaded api is ready..")
                 break
             except exception.CheckHostStatusFailure:
                 if i == 2:
-                    logger.error("check cascaded api failed ...")
+                    LOG.error("check cascaded api failed ...")
                     break
-                logger.error("check cascaded api error, "
+                LOG.error("check cascaded api error, "
                              "retry config cascaded ...")
                 self._config_az_cascaded()
 
         cost_time = time.time() - start_time
-        logger.info("config cascaded success, cascaded: %s, cost_time: %d"
+        LOG.info("config cascaded success, cascaded: %s, cost_time: %d"
                     % (self.domain, cost_time))
 
     def _config_az_cascaded(self):
-        logger.info("start config cascaded host, host: %s" % self.tunnel_ip)
+        LOG.info("start config cascaded host, host: %s" % self.tunnel_ip)
+         
         gateway = _get_gateway(self.api_ip)
         for i in range(30):
             try:
@@ -87,7 +92,7 @@ class CascadedConfiger(object):
                            "gateway": gateway})
                 break
             except exception.SSHCommandFailure as e:
-                logger.error("modify cascaded domain error: %s"
+                LOG.error("modify cascaded domain error: %s"
                              % e.message)
                 time.sleep(5)
         return True

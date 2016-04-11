@@ -1,7 +1,9 @@
 # -*- coding:utf-8 -*-
 __author__ = 'q00222219@huawei'
 
-import log as logger
+from heat.openstack.common import log as logging
+
+LOG=logging.getLogger(__name__)
 
 
 class CloudManagerException(Exception):
@@ -33,9 +35,9 @@ class CloudManagerException(Exception):
             except Exception as e:
                 # kwargs doesn't match a variable in the message
                 # log the issue and the kwargs
-                logger.exception('Exception in string format operation')
+                LOG.exception('Exception in string format operation')
                 for name, value in kwargs.iteritems():
-                    logger.error("%s: %s" % (name, value))
+                    LOG.error("%s: %s" % (name, value))
 
                 message = self.msg_fmt
 
