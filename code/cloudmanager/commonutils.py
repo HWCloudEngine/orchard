@@ -17,21 +17,25 @@ LOG = logging.getLogger(__name__)
 
 def check_host_status(host, user, password, retry_time=100, interval=1):
     LOG.info("check host status, host: %s" % host)
+    if host is None:
+        raise SSHCommandFailure(host=host, command=cmd, error="host is None")
     ssh = sshclient.SSH(host=host, user=user, password=password)
     for i in range(retry_time):
         try:
             ssh.execute("ls")
             LOG.info("host is ok, host: %s" % host)
             return True
-        except Exception:
+        except Exception as e:
             time.sleep(interval)
             continue
-    LOG.error("check host status failed, host = % s" % host)
+    LOG.error("check host status failed, host = %s" % host)
     raise CheckHostStatusFailure(host=host)
 
 
-def execute_cmd_without_stdout(host, user, password, cmd):
+def do_execute_cmd_without_stdout(host, user, password, cmd):
     LOG.debug("execute ssh command, host = %s, cmd = %s" % (host, cmd))
+    if host is None:
+        raise SSHCommandFailure(host=host, command=cmd, error="host is None")
     ssh = sshclient.SSH(host=host, user=user, password=password)
     try:
         operate_result = ssh.execute(cmd)
@@ -43,6 +47,7 @@ def execute_cmd_without_stdout(host, user, password, cmd):
         ssh.close()
 
     exit_code = operate_result[0]
+    LOG.info("exit_code=%s",exit_code)
     if exit_code == 0:
         return True
     else:
@@ -52,9 +57,23 @@ def execute_cmd_without_stdout(host, user, password, cmd):
         raise SSHCommandFailure(
             host=ssh.host, command=cmd, error=operate_result[2])
 
+def execute_cmd_without_stdout(host, user, password, cmd, retry_time=1, interval=1):
+    error = None
+    for i in range(retry_time):
+        try:
+            do_execute_cmd_without_stdout(host, user, password, cmd)
+            return True
+        except Exception as e:
+            time.sleep(interval)
+            error=e
+            continue
+    LOG.error("execute ssh command failed, host = % s" % host)
+    raise SSHCommandFailure(host=host, command=cmd, error = error.message)
 
-def execute_cmd_with_stdout(host, user, password, cmd):
+def do_execute_cmd_with_stdout(host, user, password, cmd):
     LOG.debug("execute ssh command, host = %s, cmd = %s" % (host, cmd))
+    if host is None:
+        raise SSHCommandFailure(host=host, command=cmd, error="host is None")
     ssh = sshclient.SSH(host=host, user=user, password=password)
     try:
         operate_result = ssh.execute(cmd)
@@ -76,6 +95,18 @@ def execute_cmd_with_stdout(host, user, password, cmd):
         raise SSHCommandFailure(
             host=ssh.host, command=cmd, error=operate_result[2])
 
+def execute_cmd_with_stdout(host, user, password, cmd, retry_time=1, interval=1):
+    error = ""
+    for i in range(retry_time):
+        try:
+            do_execute_cmd_with_stdout(host, user, password, cmd)
+            return True
+        except Exception:
+            time.sleep(interval)
+            error = e.message
+            continue
+    LOG.error("execute ssh command failed, host = % s" % host)
+    raise SSHCommandFailure(host=host, command=cmd, error = error)
 
 def scp_file_to_host(host, user, password, file_name, local_dir, remote_dir):
     LOG.debug("spc file to host, host = %s, file_name = %s, "

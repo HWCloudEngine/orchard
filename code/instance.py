@@ -18,7 +18,7 @@ import six
 
 from heat.engine.resources.cloudmanager import service
 from heat.engine.resources.cloudmanager import service_vcloud as vcloudservice
-
+from heat.engine.resources.cloudmanager import service_omni as service_omni
 from heat.common import exception
 from heat.common.i18n import _
 from heat.engine import attributes
@@ -1338,6 +1338,93 @@ class vCloudVpn(resource.Resource):
         cloud_manager = vcloudservice.CloudManager(cloud_params)
         return cloud_manager.delete_vpn_only()
 
+
+class HwsCloud(resource.Resource):
+    PROPERTIES = (
+        CLOUD_TYPE, AZNAME,  DATA_CENTER, PROJECT_INFO,
+        CASCADED, VPN, NETWORK, PROXY,
+        DRIVER_TYPE, ENABLE_NETWORK_CROSS_CLOUDS,EXTRA
+    ) = (
+        'CloudType', 'AZName', 'DataCenter','ProjectInfo',
+        'Cascaded', 'Vpn', 'Network', 'Proxy',
+        'DriverType', 'EnableNetworkCrossClouds','Extra'
+    )
+
+    properties_schema = {
+        CLOUD_TYPE: properties.Schema(
+            properties.Schema.STRING,
+            _('Type of cloud.')
+        ),
+        AZNAME: properties.Schema(
+            properties.Schema.STRING,
+            _('Availability zone name of hybrid cloud.')
+        ),
+        DATA_CENTER: properties.Schema(
+            properties.Schema.STRING,
+            _('data center name.')
+        ),
+        PROJECT_INFO: properties.Schema(
+            properties.Schema.MAP,
+            _('project info of hws account.')
+        ),
+        CASCADED: properties.Schema(
+            properties.Schema.MAP,
+            _('cascaded info, like image, flavor...')
+        ),
+        VPN: properties.Schema(
+            properties.Schema.MAP,
+            _('vpn info, like image, flavor...')
+        ),
+        PROXY: properties.Schema(
+            properties.Schema.MAP,
+            _('proxy info, like image, flavor...')
+        ),
+        NETWORK: properties.Schema(
+            properties.Schema.MAP,
+            _('network info. like vpc, subnet')
+        ),
+        EXTRA: properties.Schema(
+            properties.Schema.MAP,
+            _('something else')
+        ),
+        DRIVER_TYPE: properties.Schema(
+            properties.Schema.STRING,
+            _('Network driver type, agent or agent_less.')
+        ),
+        ENABLE_NETWORK_CROSS_CLOUDS: properties.Schema(
+            properties.Schema.BOOLEAN,
+            _('Enable network cross clouds.')
+        )
+    }
+
+    def __init__(self, name, json_snippet, stack):
+        super(HwsCloud, self).__init__(name, json_snippet, stack)
+        self.cloud_params = dict()
+        self.cloud_params['cloud_type'] = self.properties.get(self.CLOUD_TYPE)
+        self.cloud_params['data_center'] = self.properties.get(self.DATA_CENTER)
+        self.cloud_params['azname'] = self.properties.get(self.AZNAME)
+        self.cloud_params['project_info'] = self.properties.get(self.PROJECT_INFO)
+        self.cloud_params['proxy'] = self.properties.get(self.PROXY)
+        self.cloud_params['cascaded_info'] = self.properties.get(self.CASCADED)
+        self.cloud_params['vpn_info'] = self.properties.get(self.VPN)
+        self.cloud_params['network'] = self.properties.get(self.NETWORK)
+        self.cloud_params['extra'] = self.properties.get(self.EXTRA)
+        self.cloud_params['driver_type'] = self.properties.get(self.DRIVER_TYPE)
+        self.cloud_params['access'] = self.properties.get(self.ENABLE_NETWORK_CROSS_CLOUDS)
+
+        self.cloud_manager = service_omni.CloudManager(self.cloud_params)
+        print "This is for adding hws cloud"
+
+    def handle_create(self):
+        return self.cloud_manager.add_cloud()
+
+    def handle_update(self, json_snippet, tmpl_diff, prop_diff):
+        pass
+
+    def handle_delete(self):
+        return self.cloud_manager.delete_cloud()
+
+
 class FusionsphereCloud(resource.Resource):
     PROPERTIES = (
         CLOUD_TYPE, AZNAME, REGION_NAME, IP, ENABLE_NETWORK_CROSS_CLOUDS
@@ -1710,5 +1797,6 @@ def resource_mapping():
         'OS::Heat::FusionsphereCloud': FusionsphereCloud,
         'OS::Heat::CloudVpn': CloudVpn,
         'OS::Heat::FusionSphereCloudVpn': FusionSphereCloudVpn,
-        'OS::Heat::vCloudVpn': vCloudVpn
+        'OS::Heat::vCloudVpn': vCloudVpn,
+		'OS::Heat::HwsCloud': HwsCloud
     }

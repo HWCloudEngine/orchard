@@ -24,13 +24,14 @@ class VpnConstant(object):
     REMOVE_TUNNEL_SCRIPT = "remove_tunnel.sh"
     REMOTE_ROUTE_SCRIPTS_DIR = "/home/hybrid_cloud/scripts/vpn/"
     ADD_VPN_ROUTE_SCRIPT = "add_vpn_route.sh"
-
+    MODIFY_CASCADED_API_SCRIPT = "modify_cascaded_api.py"
 
 class Cascaded(object):
     ROOT = "root"
     ROOT_PWD = "cnp200@HW"
     REMOTE_SCRIPTS_DIR = "/root/cloud_manager/cascaded/"
     REMOTE_VCLOUD_SCRIPTS_DIR = "/home/hybrid_cloud/scripts/cascaded/"
+    REMOTE_HWS_SCRIPTS_DIR = "/home/hybrid_cloud/scripts/cascaded/"
     CONFIG_VCLOUD_SCRIPT = "config_vcloud.sh"
     MODIFY_PROXY_SCRIPT = "modify_proxy.sh"
     MODIFY_CASCADED_SCRIPT = "modify_cascaded_domain.sh"
@@ -55,6 +56,12 @@ class Cascading(object):
     KEYSTONE_ENDPOINT_SCRIPT = "create_keystone_endpoint.sh"
     ENABLE_OPENSTACK_SERVICE = "enable_openstack_service.sh"
     UPDATE_PROXY_PARAMS = "modify_proxy_params.sh"
+    ENV_FILE = "/home/hybrid_cloud/conf/environment.conf"
+
+class AfterRebootConstant(object):
+    REMOTE_SCRIPTS_DIR = "/home/hybrid_cloud/scripts/after_reboot/"
+    REMOTE_ROUTE_SCRIPTS_DIR = "/home/hybrid_cloud/scripts/after_reboot/add_vpn_route"
+    ADD_ROUTE_SCRIPT = "add_vpn_route.sh"
 
 
 class PatchesConstant(object):
@@ -63,6 +70,9 @@ class PatchesConstant(object):
     CONFIG_PATCHES_SCRIPT = "config_patches_tool_config.sh"
     CONFIG_AWS_SCRIPT = "config_aws.sh"
     CONFIG_ROUTE_SCRIPT = "config_add_route.sh"
+    REMOTE_HWS_SCRIPTS_DIR = "/home/hybrid_cloud/scripts/patches/patches_tool/hws_patch"
+    CONFIG_HWS_SCRIPT = "config_hws.sh"
+    START_HWS_GATEWAY_SCRIPT = "hws_gateway.sh"
 
 
 class RemoveConstant(object):
@@ -72,6 +82,7 @@ class RemoveConstant(object):
     REMOVE_AGGREGATE_SCRIPT = "remove_aggregate.sh"
     REMOVE_CINDER_SERVICE_SCRIPT = "remove_cinder_service.sh"
     REMOVE_NEUTRON_AGENT_SCRIPT = "remove_neutron_agent.sh"
+    REMOVE_ROUTE_SCRIPT = "remove_route.sh"
 
 
 class CephConstant(object):
@@ -113,6 +124,11 @@ class VcloudConstant(object):
     ROOT = "root"
     ROOT_PWD = "Huawei@CLOUD8!"
 
+class HwsConstant(object):
+    ROOT = "root"
+    ROOT_PWD = "Huawei@CLOUD8!"
+    CLOUD_INFO_FILE = "/home/hybrid_cloud/data/hws/hws_access_cloud.data"
+    INSTALL_INFO_FILE = "/home/hybrid_cloud/data/hws/hws_access_cloud_install.data"
 
 class AwsConstant(object):
     ROOT = "root"
