@@ -3,3 +3,5 @@ host=202.96.135.238
 port=39418
 project=Hybrid-Cloud/orchard
 defaultremote=gerrit
+defaultrebase=0
+defaultbranch=master
