@@ -1,5 +1,4 @@
 
-
 from heat.openstack.common import log as logging
 from heat.engine.resources.cloudmanager.vpn_configer import VpnConfiger
 from heat.engine.resources.cloudmanager.vpn import VPN
