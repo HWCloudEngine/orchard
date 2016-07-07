@@ -1,4 +1,5 @@
 
+
 from heat.openstack.common import log as logging
 from heat.engine.resources.cloudmanager.vpn_configer import VpnConfiger
 from heat.engine.resources.cloudmanager.vpn import VPN
@@ -359,11 +360,7 @@ class HwsConfig(object):
                 user = constant.HwsConstant.ROOT,
                 password = constant.HwsConstant.ROOT_PWD,
                 cascading_domain = self.install_info['cascading_info']['domain'],
-                cascading_api_ip = self.install_info["cascading_info"]["external_api_ip"],
-                cascaded_domain = self.install_info['cascaded_info']['domain'],
-                cascaded_api_ip = self.install_info["cascaded_info"]["external_api_ip"],
-                cascaded_api_subnet_gateway=
-                self.install_info['cascaded_subnets_info']['external_api_gateway_ip']
+                cascading_api_ip = self.install_info["cascading_info"]["external_api_ip"]
         )
 
         cascaded_cf.do_config()

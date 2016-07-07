@@ -24,15 +24,12 @@ ROOT_VOLUME_TYPE = 'SATA'
 class HwsCascadedInstaller(object):
     def __init__(self, cloud_params):
         self._init_params(cloud_params)
-        self._read_env()
         self._read_install_info()
-
-        start_hws_gateway(self.cascading_api_ip, constant.Cascading.ROOT,
-                           constant.Cascading.ROOT_PWD)
 
     def _init_params(self, cloud_params):
         self.cloud_params = cloud_params
         self._read_default_conf()
+        self._read_env()
         self.cloud_id = "@".join(["HWS", self.cloud_params['azname']])
 
         project_info = self.cloud_params["project_info"]
@@ -44,7 +41,8 @@ class HwsCascadedInstaller(object):
         host = self.default_host
         protocol = self.default_protocol
         self.installer = HwsInstaller(ak, sk, region, protocol, host, port, project_id)
-
+        start_hws_gateway(self.cascading_api_ip, constant.Cascading.ROOT,
+                           constant.Cascading.ROOT_PWD)
         self.cascaded_image_id = self.installer.get_image_id(name=self.default_cascaded_image_name)
         self.cascaded_flavor = self.default_cascaded_flavor
         self.vpn_image_id = self.installer.get_image_id(name=self.default_vpn_image_name)
