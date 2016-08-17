@@ -4,9 +4,14 @@ sys.path.append('..')
 
 import os
 import pdb
+import threading
 from heat.openstack.common import log as logging
 import install.hws.hws_install as hws_installer
-import install.hws.hws_config as hws_config
+import install.hws.hws_config as hws_configer
+
+import install.vcloud.vcloud_install as vcloud_installer
+import install.vcloud.vcloud_config as vcloud_configer
+
 
 LOG = logging.getLogger(__name__)
 
@@ -37,13 +42,24 @@ class Cloud(object):
         self.cloud_type = cloud_params['cloud_type']
         self.installer = None
         self.configer = None
+
+        self.config_vpn_thread = None
+        self.config_cascading_thread = None
+        self.config_cascaded_thread = None
+        self.config_proxy_thread = None
+        self.config_patch_thread = None
+
         self.init_installer(cloud_params)
 
     def init_installer(self,cloud_params):
         if self.cloud_type == 'HWS':
             self.installer = \
                 hws_installer.HwsCascadedInstaller(cloud_params=cloud_params)
-            self.configer = hws_config.HwsConfig()
+            self.configer = hws_configer.HwsConfig()
+        if self.cloud_type == 'VCLOUD':
+            self.installer = \
+                vcloud_installer.VcloudCascadedInstaller(cloud_params=cloud_params)
+            self.configer = vcloud_configer.VcloudConfig()
 
     def cloud_preinstall(self):
         self.installer.cloud_preinstall()
@@ -56,21 +72,20 @@ class Cloud(object):
 
     def package_install_info(self):
         return self.installer.package_install_info()
- 
+
     def cloud_install(self):
         self.installer.cloud_install()
-
         cloud_info = self.installer.package_cloud_info()
         self.configer.initialize(self.cloud_params, cloud_info)
         self.register_cloud()
 
     def cloud_preuninstall(self):
         self.installer.cloud_preuninstall()
-        pass
+
     def cloud_uninstall(self):
-        install_info = self.installer.get_cloud_info()
+        cloud_info = self.installer.get_cloud_info()
         self.installer.cloud_uninstall()   
-        self.configer.install_info = install_info
+        self.configer.initialize(self.cloud_params, cloud_info)
         self.unregister_cloud()   #unregister cloud information
   
     def get_cloud_info(self):
@@ -84,7 +99,7 @@ class Cloud(object):
         self.configer.config_proxy()
         self.configer.config_patch()
         self.configer.config_storge()
-        #self.configer.config_extnet()
+        self.configer.config_extnet()
 
     def unregister_cloud(self):
         self.configer.remove_existed_cloud()

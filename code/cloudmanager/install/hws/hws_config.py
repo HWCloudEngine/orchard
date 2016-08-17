@@ -15,81 +15,85 @@ from heat.engine.resources.cloudmanager.exception import *
 from heat.engine.resources.cloudmanager.util.retry_decorator import RetryDecorator
 from hws_cloud_info_persist import *
 from hws_util import *
+import heat.engine.resources.cloudmanager.util.conf_util as conf_util
 
 LOG = logging.getLogger(__name__)
 MAX_RETRY = 10
 class HwsConfig(object):
     def __init__(self):
-        self.install_info = None
+        self.cloud_info = None
         self.proxy_info = None
         self.cloud_params = None
         self.cloud_info_handler = None
 
-    def initialize(self, cloud_params, install_info):
+    def initialize(self, cloud_params, cloud_info):
         self.cloud_params = cloud_params
-        self.install_info = install_info
-        self.proxy_info = self.install_info["proxy_info"]
-        cloud_id = self.install_info["cloud_id"]
+
+        default_params = conf_util.read_conf(constant.Cascading.HWS_CONF_FILE)
+        self.cloud_params["project_info"]["host"]= default_params["project_info"]["host"]
+
+        self.cloud_info = cloud_info
+        self.proxy_info = self.cloud_info["proxy_info"]
+        cloud_id = self.cloud_info["cloud_id"]
         self.cloud_info_handler = \
             HwsCloudInfoPersist(constant.HwsConstant.CLOUD_INFO_FILE, cloud_id)
         self._modify_cascaded_external_api()
 
     def _config_cascading_vpn(self):
         LOG.info("config local vpn")
-        vpn_conn_name = self.install_info["vpn_conn_name"]
+        vpn_conn_name = self.cloud_info["vpn_conn_name"]
         local_vpn_cf = VpnConfiger(
-                host_ip=self.install_info['cascading_vpn_info']['external_api_ip'],
+                host_ip=self.cloud_info['cascading_vpn_info']['external_api_ip'],
                 user=constant.VpnConstant.VPN_ROOT,
                 password=constant.VpnConstant.VPN_ROOT_PWD)
 
         local_vpn_cf.register_add_conns(
                 tunnel_name=vpn_conn_name["api_conn_name"],
-                left_public_ip=self.install_info['cascading_vpn_info']['public_ip'],
-                left_subnet=self.install_info['cascading_subnets_info']['external_api'],
-                right_public_ip=self.install_info["cascaded_vpn_info"]["public_ip"],
-                right_subnet=self.install_info["cascaded_subnets_info"]["external_api"])
+                left_public_ip=self.cloud_info['cascading_vpn_info']['public_ip'],
+                left_subnet=self.cloud_info['cascading_subnets_info']['external_api'],
+                right_public_ip=self.cloud_info["cascaded_vpn_info"]["public_ip"],
+                right_subnet=self.cloud_info["cascaded_subnets_info"]["external_api"])
 
         local_vpn_cf.register_add_conns(
                 tunnel_name=vpn_conn_name["tunnel_conn_name"],
-                left_public_ip=self.install_info['cascading_vpn_info']['public_ip'],
-                left_subnet=self.install_info['cascading_subnets_info']['tunnel_bearing'],
-                right_public_ip=self.install_info['cascaded_vpn_info']['public_ip'],
-                right_subnet=self.install_info['cascaded_subnets_info']['tunnel_bearing'])
+                left_public_ip=self.cloud_info['cascading_vpn_info']['public_ip'],
+                left_subnet=self.cloud_info['cascading_subnets_info']['tunnel_bearing'],
+                right_public_ip=self.cloud_info['cascaded_vpn_info']['public_ip'],
+                right_subnet=self.cloud_info['cascaded_subnets_info']['tunnel_bearing'])
         local_vpn_cf.do_config()
 
     def _config_cascaded_vpn(self):
         LOG.info("config vcloud vpn thread")
-        vpn_conn_name = self.install_info["vpn_conn_name"]
+        vpn_conn_name = self.cloud_info["vpn_conn_name"]
         cloud_vpn_cf = VpnConfiger(
-                host_ip=self.install_info["cascaded_vpn_info"]["public_ip"],
+                host_ip=self.cloud_info["cascaded_vpn_info"]["public_ip"],
                 user=constant.VpnConstant.VPN_ROOT,
                 password=constant.VpnConstant.VPN_ROOT_PWD)
 
         cloud_vpn_cf.register_add_conns(
                 tunnel_name=vpn_conn_name["api_conn_name"],
-                left_public_ip=self.install_info['cascaded_vpn_info']['public_ip'],
-                left_subnet=self.install_info["cascaded_subnets_info"]["external_api"],
-                right_public_ip=self.install_info['cascading_vpn_info']['public_ip'],
-                right_subnet=self.install_info['cascading_subnets_info']['external_api'])
+                left_public_ip=self.cloud_info['cascaded_vpn_info']['public_ip'],
+                left_subnet=self.cloud_info["cascaded_subnets_info"]["external_api"],
+                right_public_ip=self.cloud_info['cascading_vpn_info']['public_ip'],
+                right_subnet=self.cloud_info['cascading_subnets_info']['external_api'])
 
         cloud_vpn_cf.register_add_conns(
                 tunnel_name=vpn_conn_name["tunnel_conn_name"],
-                left_public_ip=self.install_info['cascaded_vpn_info']['public_ip'],
-                left_subnet=self.install_info['cascaded_subnets_info']['tunnel_bearing'],
-                right_public_ip=self.install_info['cascading_vpn_info']['public_ip'],
-                right_subnet=self.install_info['cascading_subnets_info']['tunnel_bearing'])
+                left_public_ip=self.cloud_info['cascaded_vpn_info']['public_ip'],
+                left_subnet=self.cloud_info['cascaded_subnets_info']['tunnel_bearing'],
+                right_public_ip=self.cloud_info['cascading_vpn_info']['public_ip'],
+                right_subnet=self.cloud_info['cascading_subnets_info']['tunnel_bearing'])
         cloud_vpn_cf.do_config()
 
     def config_vpn(self):
         self._config_cascading_vpn()
         self._config_cascaded_vpn()
 
-
     def _enable_network_cross(self):
-        cloud_id = self.install_info["cloud_id"]
+        cloud_id = self.cloud_info["cloud_id"]
 
         vpn_cfg = VpnConfiger(
-                host_ip=self.install_info["cascaded_vpn_info"]["public_ip"],
+                host_ip=self.cloud_info["cascaded_vpn_info"]["public_ip"],
                 user=constant.VpnConstant.VPN_ROOT,
                 password=constant.VpnConstant.VPN_ROOT_PWD)
 
@@ -110,8 +114,8 @@ class HwsConfig(object):
             tunnel_conn_name = "%s-tunnel-%s" % (cloud_id, other_cloud_id)
             vpn_cfg.register_add_conns(
                 tunnel_name=tunnel_conn_name,
-                left_public_ip=self.install_info["cascaded_vpn_info"]["public_ip"],
-                left_subnet=self.install_info["cascaded_subnets_info"]["tunnel_bearing"],
+                left_public_ip=self.cloud_info["cascaded_vpn_info"]["public_ip"],
+                left_subnet=self.cloud_info["cascaded_subnets_info"]["tunnel_bearing"],
                 right_public_ip=other_cloud["cascaded_vpn_info"]["public_ip"],
                 right_subnet=other_cloud["cascaded_subnets_info"]["tunnel_bearing"])
 
@@ -119,24 +123,24 @@ class HwsConfig(object):
                 tunnel_name=tunnel_conn_name,
                 left_public_ip=other_cloud["cascaded_vpn_info"]["public_ip"],
                 left_subnet=other_cloud["cascaded_subnets_info"]["tunnel_bearing"],
-                right_public_ip=self.install_info['cascaded_vpn_info']['public_ip'],
-                right_subnet=self.install_info['cascaded_subnets_info']['tunnel_bearing'])
+                right_public_ip=self.cloud_info['cascaded_vpn_info']['public_ip'],
+                right_subnet=self.cloud_info['cascaded_subnets_info']['tunnel_bearing'])
             vpn_cfg.do_config()
             other_vpn_cfg.do_config()
 
             LOG.info("add route on cascadeds...")
             execute_cmd_without_stdout(
-                host=self.install_info["cascaded_info"]["public_ip"],
+                host=self.cloud_info["cascaded_info"]["public_ip"],
                 user=constant.HwsConstant.ROOT,
                 password=constant.HwsConstant.ROOT_PWD,
                 cmd='cd %(dir)s; sh %(script)s %(subnet)s %(gw)s'
                     % {"dir": constant.Cascaded.REMOTE_HWS_SCRIPTS_DIR,
                        "script": constant.Cascaded.ADD_API_ROUTE_SCRIPT,
                        "subnet": other_cloud["cascaded_subnets_info"]["tunnel_bearing"],
-                       "gw": self.install_info["cascaded_vpn_info"]['tunnel_bearing_ip']})
+                       "gw": self.cloud_info["cascaded_vpn_info"]['tunnel_bearing_ip']})
 
             execute_cmd_without_stdout(
-                host=self.install_info["cascaded_info"]["public_ip"],
+                host=self.cloud_info["cascaded_info"]["public_ip"],
                 user=constant.HwsConstant.ROOT,
                 password=constant.HwsConstant.ROOT_PWD,
                 cmd='cd %(dir)s; sh %(script)s '
@@ -145,7 +149,7 @@ class HwsConfig(object):
                     % {"dir": constant.AfterRebootConstant.REMOTE_SCRIPTS_DIR,
                        "script": constant.AfterRebootConstant.ADD_ROUTE_SCRIPT,
                        "access_cloud_tunnel_subnet": other_cloud["cascaded_subnets_info"]["tunnel_bearing"],
-                       "tunnel_gw": self.install_info["cascaded_vpn_info"]['tunnel_bearing_ip'],
+                       "tunnel_gw": self.cloud_info["cascaded_vpn_info"]['tunnel_bearing_ip'],
                        "cloud_id": other_cloud_id})
 
             execute_cmd_without_stdout(
@@ -155,7 +159,7 @@ class HwsConfig(object):
                 cmd='cd %(dir)s; sh %(script)s %(subnet)s %(gw)s'
                     % {"dir": constant.Cascaded.REMOTE_HWS_SCRIPTS_DIR,
                        "script": constant.Cascaded.ADD_API_ROUTE_SCRIPT,
-                       "subnet": self.install_info["cascaded_subnets_info"]["tunnel_bearing"],
+                       "subnet": self.cloud_info["cascaded_subnets_info"]["tunnel_bearing"],
                        "gw": other_cloud["cascaded_vpn_info"]['tunnel_bearing_ip']})
 
             execute_cmd_without_stdout(
@@ -167,7 +171,7 @@ class HwsConfig(object):
                     '%(cloud_id)s'
                     % {"dir": constant.AfterRebootConstant.REMOTE_SCRIPTS_DIR,
                        "script": constant.AfterRebootConstant.ADD_ROUTE_SCRIPT,
-                       "access_cloud_tunnel_subnet": self.install_info["cascaded_subnets_info"]["tunnel_bearing"],
+                       "access_cloud_tunnel_subnet": self.cloud_info["cascaded_subnets_info"]["tunnel_bearing"],
                        "tunnel_gw": other_cloud["cascaded_vpn_info"]['tunnel_bearing_ip'],
                        "cloud_id": cloud_id})
 
@@ -179,15 +183,15 @@ class HwsConfig(object):
     def _config_cascading_route(self):
         LOG.info("add route to cascading ...")
         self._add_vpn_route_with_api(
-                host_ip=self.install_info['cascading_info']['external_api_ip'],
+                host_ip=self.cloud_info['cascading_info']['external_api_ip'],
                 user=constant.Cascading.ROOT,
                 passwd=constant.Cascading.ROOT_PWD,
                 access_cloud_api_subnet=
-                self.install_info["cascaded_subnets_info"]["external_api"],
-                api_gw=self.install_info["cascading_vpn_info"]['external_api_ip'],
+                self.cloud_info["cascaded_subnets_info"]["external_api"],
+                api_gw=self.cloud_info["cascading_vpn_info"]['external_api_ip'],
                 access_cloud_tunnel_subnet=
-                self.install_info["cascaded_subnets_info"]["tunnel_bearing"],
-                tunnel_gw=self.install_info["cascading_vpn_info"]['tunnel_bearing_ip'],
+                self.cloud_info["cascaded_subnets_info"]["tunnel_bearing"],
+                tunnel_gw=self.cloud_info["cascading_vpn_info"]['tunnel_bearing_ip'],
                 cloud_id=self.cloud_params["azname"])
 
     @RetryDecorator(max_retry_count=MAX_RETRY,
@@ -197,35 +201,35 @@ class HwsConfig(object):
         LOG.info("add route to hws on cascaded ...")
 
         check_host_status(
-                host=self.install_info["cascaded_info"]["public_ip"],
+                host=self.cloud_info["cascaded_info"]["public_ip"],
                 user=constant.HwsConstant.ROOT,
                 password=constant.HwsConstant.ROOT_PWD,
                 retry_time=100, interval=3)    #wait cascaded vm started
 
         """
         execute_cmd_without_stdout(
-                host=self.install_info["cascaded_info"]["public_ip"],
+                host=self.cloud_info["cascaded_info"]["public_ip"],
                 user=constant.HwsConstant.ROOT,
                 password=constant.HwsConstant.ROOT_PWD,
                 cmd="source /root/adminrc/; cps network-update --name tunnel_bearing --subnet %(tunnel_bearing_cidr)s"
-                    % {"tunnel_bearing_cidr":self.install_info["cascaded_subnets_info"]["tunnel_bearing"]},
+                    % {"tunnel_bearing_cidr":self.cloud_info["cascaded_subnets_info"]["tunnel_bearing"]},
                 retry_time=10, interval=3)    
         """
         self._add_vpn_route_with_api(
-                host_ip=self.install_info["cascaded_info"]["public_ip"],
+                host_ip=self.cloud_info["cascaded_info"]["public_ip"],
                 user=constant.HwsConstant.ROOT,
                 passwd=constant.HwsConstant.ROOT_PWD,
                 access_cloud_api_subnet=
-                self.install_info["cascading_subnets_info"]["external_api"],
-                api_gw=self.install_info["cascaded_vpn_info"]["external_api_ip"],
+                self.cloud_info["cascading_subnets_info"]["external_api"],
+                api_gw=self.cloud_info["cascaded_vpn_info"]["external_api_ip"],
                 access_cloud_tunnel_subnet=
-                self.install_info["cascading_subnets_info"]["tunnel_bearing"],
-                tunnel_gw=self.install_info["cascaded_vpn_info"]["tunnel_bearing_ip"],
+                self.cloud_info["cascading_subnets_info"]["tunnel_bearing"],
+                tunnel_gw=self.cloud_info["cascaded_vpn_info"]["tunnel_bearing_ip"],
                 cloud_id="cascading"
         )
 
         check_host_status(
-                    host=self.install_info["cascaded_info"]["external_api_ip"],
+                    host=self.cloud_info["cascaded_info"]["external_api_ip"],
                     user=constant.HwsConstant.ROOT,
                     password=constant.HwsConstant.ROOT_PWD,
                     retry_time=100, interval=3)    #test api net
@@ -240,23 +244,23 @@ class HwsConfig(object):
                     '%(gateway)s'\
                     % {"dir": constant.Cascaded.REMOTE_HWS_SCRIPTS_DIR,
                        "script":constant.Cascaded.MODIFY_CASCADED_SCRIPT_PY,
-                       "cascading_domain": self.install_info['cascading_info']['domain'],
-                       "cascading_api_ip": self.install_info["cascading_info"]["external_api_ip"],
-                       "cascaded_domain": self.install_info["cascaded_info"]['domain'],
-                       "cascaded_ip": self.install_info["cascaded_info"]["external_api_ip"],
-                       "gateway": self.install_info['cascaded_subnets_info']['external_api_gateway_ip']}
+                       "cascading_domain": self.cloud_info['cascading_info']['domain'],
+                       "cascading_api_ip": self.cloud_info["cascading_info"]["external_api_ip"],
+                       "cascaded_domain": self.cloud_info["cascaded_info"]['domain'],
+                       "cascaded_ip": self.cloud_info["cascaded_info"]["external_api_ip"],
+                       "gateway": self.cloud_info['cascaded_subnets_info']['external_api_gateway_ip']}
         #pdb.set_trace()
         for i in range(100):
             try:
                 execute_cmd_without_stdout(
-                    host= self.install_info["cascaded_vpn_info"]["public_ip"],
+                    host= self.cloud_info["cascaded_vpn_info"]["public_ip"],
                     user=constant.VpnConstant.VPN_ROOT,
                     password=constant.VpnConstant.VPN_ROOT_PWD,
                     cmd='cd %(dir)s; python %(script)s '
                         '%(cascaded_tunnel_ip)s %(user)s %(passwd)s \'%(cmd)s\''
                     % {"dir": constant.VpnConstant.REMOTE_ROUTE_SCRIPTS_DIR,
                        "script": constant.VpnConstant.MODIFY_CASCADED_API_SCRIPT,
-                       "cascaded_tunnel_ip": self.install_info["cascaded_info"]["tunnel_bearing_ip"],
+                       "cascaded_tunnel_ip": self.cloud_info["cascaded_info"]["tunnel_bearing_ip"],
                        "user": constant.HwsConstant.ROOT,
                        "passwd": constant.HwsConstant.ROOT_PWD,
                        "cmd": modify_cascaded_api_domain_cmd})
@@ -266,13 +270,13 @@ class HwsConfig(object):
                 time.sleep(10)
                 continue
         LOG.error("modify cascaded=%s external_api ip and domain error"
-                  % self.install_info["cascaded_info"]["tunnel_bearing_ip"])
+                  % self.cloud_info["cascaded_info"]["tunnel_bearing_ip"])
 
     def config_route(self):
         self._config_cascading_route()
         self._config_cascaded_route()
 
-        self._enable_network_cross()
+
 
 
 
@@ -337,13 +341,12 @@ class HwsConfig(object):
     def config_cascading(self):
         #TODO(lrx):remove v2v_gw
         LOG.info("config cascading")
-        self.remove_keystone()
         cascading_cf = CascadingConfiger(
-                cascading_ip=self.install_info["cascading_info"]["external_api_ip"],
+                cascading_ip=self.cloud_info["cascading_info"]["external_api_ip"],
                 user=constant.Cascading.ROOT,
                 password=constant.Cascading.ROOT_PWD,
-                cascaded_domain=self.install_info["cascaded_info"]["domain"],
-                cascaded_api_ip=self.install_info["cascaded_info"]["external_api_ip"],
+                cascaded_domain=self.cloud_info["cascaded_info"]["domain"],
+                cascaded_api_ip=self.cloud_info["cascaded_info"]["external_api_ip"],
                 v2v_gw='1.1.1.1')
         cascading_cf.do_config()
 
@@ -351,17 +354,17 @@ class HwsConfig(object):
         LOG.info("config cascaded")
 
         cascaded_cf = CascadedConfiger(
-                public_ip_api = self.install_info["cascaded_info"]["public_ip"],
-                api_ip = self.install_info["cascaded_info"]["external_api_ip"],
-                domain = self.install_info["cascaded_info"]['domain'],
+                public_ip_api = self.cloud_info["cascaded_info"]["public_ip"],
+                api_ip = self.cloud_info["cascaded_info"]["external_api_ip"],
+                domain = self.cloud_info["cascaded_info"]['domain'],
                 user = constant.HwsConstant.ROOT,
                 password = constant.HwsConstant.ROOT_PWD,
-                cascading_domain = self.install_info['cascading_info']['domain'],
-                cascading_api_ip = self.install_info["cascading_info"]["external_api_ip"],
-                cascaded_domain = self.install_info['cascaded_info']['domain'],
-                cascaded_api_ip = self.install_info["cascaded_info"]["external_api_ip"],
+                cascading_domain = self.cloud_info['cascading_info']['domain'],
+                cascading_api_ip = self.cloud_info["cascading_info"]["external_api_ip"],
+                cascaded_domain = self.cloud_info['cascaded_info']['domain'],
+                cascaded_api_ip = self.cloud_info["cascaded_info"]["external_api_ip"],
                 cascaded_api_subnet_gateway=
-                self.install_info['cascaded_subnets_info']['external_api_gateway_ip']
+                self.cloud_info['cascaded_subnets_info']['external_api_gateway_ip']
         )
 
         cascaded_cf.do_config()
@@ -382,7 +385,7 @@ class HwsConfig(object):
                      % (proxy_id, proxy_num))
 
         self._config_proxy(
-                self.install_info['cascading_info']['external_api_ip'],
+                self.cloud_info['cascading_info']['external_api_ip'],
                 self.proxy_info)
 
         pass
@@ -417,17 +420,17 @@ class HwsConfig(object):
     def config_patch(self):
         LOG.info("config patches config ...")
 
-        cascaded_public_ip = self.install_info["cascaded_info"]['public_ip']
+        cascaded_public_ip = self.cloud_info["cascaded_info"]['public_ip']
 
         self._config_patch_tools(
-                host_ip=self.install_info['cascading_info']['external_api_ip'],
+                host_ip=self.cloud_info['cascading_info']['external_api_ip'],
                 user=constant.Cascading.ROOT,
                 passwd=constant.Cascading.ROOT_PWD,
-                cascaded_domain=self.install_info['cascaded_info']['domain'],
+                cascaded_domain=self.cloud_info['cascaded_info']['domain'],
                 proxy_info=self.proxy_info,
-                install_info=self.install_info)
+                cloud_info=self.cloud_info)
 
-        self._deploy_patches(self.install_info['cascading_info']['external_api_ip'],
+        self._deploy_patches(self.cloud_info['cascading_info']['external_api_ip'],
                              user=constant.Cascading.ROOT,
                              passwd=constant.Cascading.ROOT_PWD)
 
@@ -436,12 +439,12 @@ class HwsConfig(object):
                 user=constant.HwsConstant.ROOT,
                 passwd=constant.HwsConstant.ROOT_PWD)
 
-        start_hws_gateway(self.install_info["cascaded_info"]["public_ip"],
+        start_hws_gateway(self.cloud_info["cascaded_info"]["public_ip"],
                                 constant.HwsConstant.ROOT,
                                 constant.HwsConstant.ROOT_PWD)
 
     def _config_patch_tools(self, host_ip, user, passwd,
-                            cascaded_domain, proxy_info, install_info):
+                            cascaded_domain, proxy_info, cloud_info):
         LOG.info("config patches tools  ...")
         for i in range(10):
             try:
@@ -449,8 +452,6 @@ class HwsConfig(object):
                     host=host_ip, user=user, password=passwd,
                      cmd='cd %(dis)s; sh %(script)s '
                         '%(proxy_num)s %(proxy_host_name)s %(cascaded_domain)s '
-                        '%(local_api_subnet)s %(cloud_vpn_api_ip)s '
-                        '%(local_tunnel_subnet)s %(cloud_vpn_tunnel_ip)s '
                         '%(cascading_domain)s'
                         % {"dis": constant.PatchesConstant.REMOTE_SCRIPTS_DIR,
                            "script":
@@ -458,11 +459,7 @@ class HwsConfig(object):
                            "proxy_num": proxy_info["proxy_num"],
                            "proxy_host_name": proxy_info["id"],
                            "cascaded_domain": cascaded_domain,
-                           "local_api_subnet": install_info['cascading_subnets_info']['external_api'],
-                           "cloud_vpn_api_ip": install_info["cascaded_vpn_info"]["external_api_ip"],
-                           "local_tunnel_subnet": install_info['cascading_subnets_info']['tunnel_bearing'],
-                           "cloud_vpn_tunnel_ip": install_info["cascaded_vpn_info"]["tunnel_bearing_ip"],
-                           "cascading_domain": install_info["cascading_info"]["domain"]})
+                            "cascading_domain": cloud_info["cascading_info"]["domain"]})
                 return True
             except Exception as e:
                 LOG.error("config patch tool error, error: %s"
@@ -486,9 +483,9 @@ class HwsConfig(object):
                 evs_host = 'evs.' + host_endpoint
                 ims_host = 'ims.' + host_endpoint
                 vpc_host = 'vpc.' + host_endpoint
-                vpc_id = self.install_info["cascaded_subnets_info"]["vpc_id"]
-                tunnel_bearing_id = self.install_info["cascaded_subnets_info"]["tunnel_bearing_id"]
-                internal_base_id = self.install_info["cascaded_subnets_info"]["internal_base_id"]
+                vpc_id = self.cloud_info["cascaded_subnets_info"]["vpc_id"]
+                tunnel_bearing_id = self.cloud_info["cascaded_subnets_info"]["tunnel_bearing_id"]
+                internal_base_id = self.cloud_info["cascaded_subnets_info"]["internal_base_id"]
                 subnet_id = tunnel_bearing_id + "," + internal_base_id
                 execute_cmd_without_stdout(
                     host=host_ip, user=user, password=passwd,
@@ -515,11 +512,11 @@ class HwsConfig(object):
                            "gong_yao": gong_yao,
                            "si_yao": si_yao,
                            "tunnel_cidr":
-                               self.install_info["cascaded_subnets_info"]["tunnel_bearing"],
+                               self.cloud_info["cascaded_subnets_info"]["tunnel_bearing"],
                            "route_gw":
-                               self.install_info["cascaded_vpn_info"]["tunnel_bearing_ip"],
-                           "rabbit_host_ip":self.install_info["cascaded_info"]["internal_base_ip"],
-                           "security_group_vpc":self.install_info["cascaded_subnets_info"]["security_group_id"]
+                               self.cloud_info["cascaded_vpn_info"]["tunnel_bearing_ip"],
+                           "rabbit_host_ip":self.cloud_info["cascaded_info"]["internal_base_ip"],
+                           "security_group_vpc":self.cloud_info["cascaded_subnets_info"]["security_group_id"]
                             })
 
                 self._restart_nova_computer(host_ip, user, passwd)
@@ -530,26 +527,6 @@ class HwsConfig(object):
                 continue
 
         return True
-
-    def update_aggregate(self):
-        cascaded_aggregate = self.install_info['cascaded_info']["aggregate"]
-        for i in range(3):
-            try:
-                execute_cmd_without_stdout(
-                    host=self.install_info["cascaded_info"]["public_ip"],
-                    user=constant.HwsConstant.ROOT,
-                    password=constant.HwsConstant.ROOT_PWD,
-                    cmd='source /root/adminrc;'
-                        'nova aggregate-update 1 %(name)s %(aggregate)s'
-                        % {"name": cascaded_aggregate,
-                           "aggregate": cascaded_aggregate})
-                break
-            except exception.SSHCommandFailure as e:
-                LOG.error("update cascaded aggregate error, aggregate: "
-                             "%s, error: %s"
-                             % (cascaded_aggregate, e.format_message()))
-                time.sleep(1)
-
     @staticmethod
     def _restart_nova_computer(host_ip, user, passwd):
         execute_cmd_without_stdout(
@@ -581,14 +558,12 @@ class HwsConfig(object):
         #pdb.set_trace()
 
         self._config_storage(
-                host= self.install_info['cascaded_info']['public_ip'],
+                host= self.cloud_info['cascaded_info']['public_ip'],
                 user=constant.HwsConstant.ROOT,
                 password=constant.HwsConstant.ROOT_PWD,
-                cascading_domain=self.install_info['cascading_info']['domain'],
-                cascaded_domain=self.install_info['cascaded_info']['domain'],
+                cascading_domain=self.cloud_info['cascading_info']['domain'],
+                cascaded_domain=self.cloud_info['cascaded_info']['domain'],
                 )
-
-        self.update_aggregate()
 
     def _config_storage(self, host, user, password, cascading_domain,
                         cascaded_domain):
@@ -615,8 +590,14 @@ class HwsConfig(object):
 
         return True
 
+    def config_extnet(self):
+        self._config_extnet()
+
+    def _config_extnet(self):
+        self._enable_network_cross()
+
     def remove_existed_cloud(self):
-        if self.install_info is None:
+        if self.cloud_info is None:
             return
         self.remove_aggregate()
         self.remove_cinder()
@@ -626,12 +607,12 @@ class HwsConfig(object):
         self.remove_dns()
         self.remove_route()
         self.remove_vpn_tunnel()
-        stop_hws_gateway(host_ip= self.install_info["cascading_info"]["external_api_ip"],
+        stop_hws_gateway(host_ip= self.cloud_info["cascading_info"]["external_api_ip"],
                 user=constant.Cascading.ROOT,
                 password=constant.Cascading.ROOT_PWD)
 
     def remove_aggregate(self):
-        cascading_api_ip = self.install_info["cascading_info"]["external_api_ip"]
+        cascading_api_ip = self.cloud_info["cascading_info"]["external_api_ip"]
         try:
             execute_cmd_without_stdout(
                 host=cascading_api_ip,
@@ -641,12 +622,12 @@ class HwsConfig(object):
                     % {"dir": constant.RemoveConstant.REMOTE_SCRIPTS_DIR,
                        "script":
                            constant.RemoveConstant.REMOVE_AGGREGATE_SCRIPT,
-                       "cascaded_domain": self.install_info["cascaded_info"]["domain"]})
+                       "cascaded_domain": self.cloud_info["cascaded_info"]["domain"]})
         except Exception as e:
             LOG.error("remove aggregate error, error: %s" % e.message)
 
     def remove_cinder(self):
-        cascading_api_ip = self.install_info["cascading_info"]["external_api_ip"]
+        cascading_api_ip = self.cloud_info["cascading_info"]["external_api_ip"]
         try:
             execute_cmd_without_stdout(
                 host= cascading_api_ip,
@@ -656,12 +637,12 @@ class HwsConfig(object):
                     % {"dir": constant.RemoveConstant.REMOTE_SCRIPTS_DIR,
                        "script":
                            constant.RemoveConstant.REMOVE_CINDER_SERVICE_SCRIPT,
-                       "cascaded_domain": self.install_info["cascaded_info"]["domain"]})
+                       "cascaded_domain": self.cloud_info["cascaded_info"]["domain"]})
         except Exception as e:
             LOG.error("remove cinder service error, error: %s" % e.message)
 
     def remove_neutron_agent(self):
-        cascading_api_ip = self.install_info["cascading_info"]["external_api_ip"]
+        cascading_api_ip = self.cloud_info["cascading_info"]["external_api_ip"]
         try:
             execute_cmd_without_stdout(
                 host= cascading_api_ip,
@@ -671,7 +652,7 @@ class HwsConfig(object):
                     % {"dir": constant.RemoveConstant.REMOTE_SCRIPTS_DIR,
                        "script":
                            constant.RemoveConstant.REMOVE_NEUTRON_AGENT_SCRIPT,
-                       "cascaded_domain": self.install_info["cascaded_info"]["domain"]})
+                       "cascaded_domain": self.cloud_info["cascaded_info"]["domain"]})
 
             execute_cmd_without_stdout(
                 host= cascading_api_ip,
@@ -681,12 +662,12 @@ class HwsConfig(object):
                     % {"dir": constant.RemoveConstant.REMOTE_SCRIPTS_DIR,
                        "script":
                            constant.RemoveConstant.REMOVE_NEUTRON_AGENT_SCRIPT,
-                       "proxy_host": self.install_info["proxy_info"]["id"]})
+                       "proxy_host": self.cloud_info["proxy_info"]["id"]})
         except Exception as e:
             LOG.error("remove neutron agent error, error: %s" % e.message)
 
     def remove_keystone(self):
-        cascading_api_ip = self.install_info["cascading_info"]["external_api_ip"]
+        cascading_api_ip = self.cloud_info["cascading_info"]["external_api_ip"]
         try:
             execute_cmd_without_stdout(
                 host= cascading_api_ip,
@@ -695,13 +676,13 @@ class HwsConfig(object):
                 cmd='cd %(dir)s; sh %(script)s %(cascaded_domain)s'
                     % {"dir": constant.RemoveConstant.REMOTE_SCRIPTS_DIR,
                        "script": constant.RemoveConstant.REMOVE_KEYSTONE_SCRIPT,
-                       "cascaded_domain": self.install_info["cascaded_info"]["domain"]})
+                       "cascaded_domain": self.cloud_info["cascaded_info"]["domain"]})
         except Exception as e:
             LOG.error("remove keystone endpoint error: %s" % e.message)
 
     def remove_proxy(self):
-        cascading_api_ip = self.install_info["cascading_info"]["external_api_ip"]
-        if self.install_info["proxy_info"] is None:
+        cascading_api_ip = self.cloud_info["cascading_info"]["external_api_ip"]
+        if self.cloud_info["proxy_info"] is None:
             LOG.info("proxy is None")
             return
         try:
@@ -713,16 +694,16 @@ class HwsConfig(object):
                     'sh %(script)s %(proxy_host_name)s %(proxy_num)s'
                     % {"dir": constant.RemoveConstant.REMOTE_SCRIPTS_DIR,
                        "script": constant.RemoveConstant.REMOVE_PROXY_SCRIPT,
-                       "proxy_host_name": self.install_info["proxy_info"]["id"],
-                       "proxy_num": self.install_info["proxy_info"]["proxy_num"]})
+                       "proxy_host_name": self.cloud_info["proxy_info"]["id"],
+                       "proxy_num": self.cloud_info["proxy_info"]["proxy_num"]})
         except Exception as e:
             LOG.error("remove proxy error: %s" % e.message)
 
     def remove_dns(self):
-        cascading_api_ip = self.install_info["cascading_info"]["external_api_ip"]
-        cascaded_api_ip = self.install_info["cascaded_info"]['external_api_ip']
+        cascading_api_ip = self.cloud_info["cascading_info"]["external_api_ip"]
+        cascaded_api_ip = self.cloud_info["cascaded_info"]['external_api_ip']
         address = "/%(cascaded_domain)s/%(cascaded_ip)s" \
-                  % {"cascaded_domain": self.install_info["cascaded_info"]["domain"],
+                  % {"cascaded_domain": self.cloud_info["cascaded_info"]["domain"],
                      "cascaded_ip": cascaded_api_ip}
         try:
             execute_cmd_without_stdout(
@@ -738,7 +719,7 @@ class HwsConfig(object):
             LOG.error("remove dns address error.")
 
     def disable_cross_network(self):
-        cloud_id = self.install_info["cloud_id"]
+        cloud_id = self.cloud_info["cloud_id"]
         for other_cloud_id in self.cloud_info_handler.list_all_cloud_id():
             if other_cloud_id == cloud_id:
                 continue
@@ -766,10 +747,10 @@ class HwsConfig(object):
                 cmd='cd %(dir)s; sh %(script)s %(subnet)s'
                     % {"dir": constant.RemoveConstant.REMOTE_SCRIPTS_DIR,
                        "script": constant.RemoveConstant.REMOVE_ROUTE_SCRIPT,
-                       "subnet": self.install_info["cascaded_subnets_info"]["tunnel_bearing"]
+                       "subnet": self.cloud_info["cascaded_subnets_info"]["tunnel_bearing"]
                        })
 
-            add_route_file = "add_vpn_route_" + self.install_info["azname"] + ".sh"
+            add_route_file = "add_vpn_route_" + self.cloud_info["azname"] + ".sh"
             execute_cmd_without_stdout(
                 host=other_cloud["cascaded_info"]["public_ip"],
                 user=constant.HwsConstant.ROOT,
@@ -785,7 +766,7 @@ class HwsConfig(object):
         pass
 
     def remove_route(self):
-        cascading_api_ip = self.install_info["cascading_info"]["external_api_ip"]
+        cascading_api_ip = self.cloud_info["cascading_info"]["external_api_ip"]
         try:
             execute_cmd_without_stdout(
                 host= cascading_api_ip,
@@ -798,16 +779,16 @@ class HwsConfig(object):
                        "dir2":constant.RemoveConstant.REMOTE_SCRIPTS_DIR,
                        "remove_route": constant.RemoveConstant.REMOVE_ROUTE_SCRIPT,
                        "tunnel_route":
-                           self.install_info["cascaded_subnets_info"]["tunnel_bearing"],
+                           self.cloud_info["cascaded_subnets_info"]["tunnel_bearing"],
                        "api_route":
-                           self.install_info["cascaded_subnets_info"]["external_api"]})
+                           self.cloud_info["cascaded_subnets_info"]["external_api"]})
         except Exception as e:
             LOG.error("remove cascaded route error: %s", e.message)
 
     def remove_vpn_tunnel(self):
-        vpn_conn_name = self.install_info["vpn_conn_name"]
+        vpn_conn_name = self.cloud_info["vpn_conn_name"]
         try:
-            local_vpn = VPN(self.install_info["cascading_vpn_info"]["external_api_ip"],
+            local_vpn = VPN(self.cloud_info["cascading_vpn_info"]["external_api_ip"],
                             constant.VpnConstant.VPN_ROOT,
                             constant.VpnConstant.VPN_ROOT_PWD)
             local_vpn.remove_tunnel(vpn_conn_name["api_conn_name"])

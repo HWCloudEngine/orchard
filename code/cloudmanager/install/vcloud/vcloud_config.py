@@ -6,7 +6,8 @@ from heat.openstack.common import log as logging
 from heat.engine.resources.cloudmanager.vpn_configer import VpnConfiger
 from heat.engine.resources.cloudmanager.vpn import VPN
 import heat.engine.resources.cloudmanager.constant as constant
-from vcloudcloudpersist import VcloudCloudDataHandler
+#from vcloudcloudpersist import VcloudCloudDataHandler
+from vcloud_cloud_info_persist import *
 import threading
 import time
 import heat.engine.resources.cloudmanager.proxy_manager
@@ -19,155 +20,188 @@ import heat.engine.resources.cloudmanager.exception as exception
 
 LOG = logging.getLogger(__name__)
 
-class VcloudCloudConfig:
+class VcloudConfig:
     def __init__(self):
-        self.local_vpn_thread = None
-        self.cloud_vpn_thread = None
-        self.cascading_thread = None
-        self.cascaded_thread = None
-
-        self.instal_info = None
+        self.cloud_info = None
         self.proxy_info = None
-        self.installer = None
-        self.cloudinfo = None
-        self.vpn_conn_name =None
         self.cloud_params = None
+        self.cloud_info_handler = None
 
-    def initialize(self, cloud_params, instal_info, proxy_info, cloudinfo, installer):
+    def initialize(self, cloud_params, cloud_info):
         self.cloud_params = cloud_params
-        self.instal_info = instal_info
-        self.proxy_info = proxy_info
-        self.installer = installer
-        self.cloudinfo = cloudinfo
-        self.vpn_conn_name = cloudinfo.get_vpn_conn_name()
+
+        self.cloud_info = cloud_info
+        self.proxy_info = self.cloud_info["proxy_info"]
+        cloud_id = self.cloud_info["cloud_id"]
+        self.cloud_info_handler = \
+            VcloudCloudInfoPersist(constant.VcloudConstant.CLOUD_INFO_FILE, cloud_id)
+
+
+    def _modify_cascaded_external_api(self):
+        #ssh to vpn, then ssh to cascaded through vpn tunnel_bearing_ip
+        modify_cascaded_api_domain_cmd = 'cd %(dir)s; ' \
+                    'source /root/adminrc; ' \
+                    'python %(script)s '\
+                    '%(cascading_domain)s %(cascading_api_ip)s '\
+                    '%(cascaded_domain)s %(cascaded_ip)s '\
+                    '%(gateway)s'\
+                    % {"dir": constant.Cascaded.REMOTE_HWS_SCRIPTS_DIR,
+                       "script":constant.Cascaded.MODIFY_CASCADED_SCRIPT_PY,
+                       "cascading_domain": self.cloud_info['cascading_info']['domain'],
+                       "cascading_api_ip": self.cloud_info["cascading_info"]["external_api_ip"],
+                       "cascaded_domain": self.cloud_info["cascaded_info"]['domain'],
+                       "cascaded_ip": self.cloud_info["cascaded_info"]["external_api_ip"],
+                       "gateway": self.cloud_info['cascaded_subnets_info']['external_api_gateway_ip']}
+        #pdb.set_trace()
+        for i in range(100):
+            try:
+                execute_cmd_without_stdout(
+                    host= self.cloud_info["cascaded_vpn_info"]["public_ip"],
+                    user=constant.VpnConstant.VPN_ROOT,
+                    password=constant.VpnConstant.VPN_ROOT_PWD,
+                    cmd='cd %(dir)s; python %(script)s '
+                        '%(cascaded_tunnel_ip)s %(user)s %(passwd)s \'%(cmd)s\''
+                    % {"dir": constant.VpnConstant.REMOTE_ROUTE_SCRIPTS_DIR,
+                       "script": constant.VpnConstant.MODIFY_CASCADED_API_SCRIPT,
+                       "cascaded_tunnel_ip": self.cloud_info["cascaded_info"]["tunnel_bearing_ip"],
+                       "user": constant.VcloudConstant.ROOT,
+                       "passwd": constant.VcloudConstant.ROOT_PWD,
+                       "cmd": modify_cascaded_api_domain_cmd})
+                return True
+            except Exception:
+                #wait cascaded vm to reboot ok
+                time.sleep(10)
+                continue
+        LOG.error("modify cascaded=%s external_api ip and domain error"
+                  % self.cloud_info["cascaded_info"]["tunnel_bearing_ip"])
 
     def config_vpn_only(self):
-        LOG.info("config cloud vpn only")
+        LOG.info("config vcloud vpn only")
         cloud_vpn_cf = VpnConfiger(
-                    host_ip=self.instal_info["vpn"]["public_ip_vpn"],
+                    host_ip=self.cloud_info["cascaded_vpn_info"]["public_ip"],
                     user=constant.VpnConstant.VCLOUD_VPN_ROOT,
                     password=constant.VpnConstant.VCLOUD_VPN_ROOT_PWD)
 
         cloud_vpn_cf.register_add_conns(
-                    tunnel_name=self.vpn_conn_name["api_conn_name"],
-                    left_public_ip=self.instal_info["vpn"]["ext_net_publicip"],
-                    left_subnet=self.instal_info["vdc_network"]["api_subnet_cidr"],
-                    right_public_ip=self.installer.local_vpn_public_gw,
-                    right_subnet=self.installer.local_api_subnet)
+                    tunnel_name=self.cloud_info["vpn_conn_name"]["api_conn_name"],
+                    left_public_ip=self.cloud_info["cascaded_vpn_info"]["public_ip"],
+                    left_subnet=self.cloud_info["cascaded_subnets_info"]["external_api"],
+                    right_public_ip=self.cloud_info["cascading_vpn_info"]["public_ip"],
+                    right_subnet=self.cloud_info["cascading_subnets_info"]["external_api"])
 
         cloud_vpn_cf.register_add_conns(
-                    tunnel_name=self.vpn_conn_name["tunnel_conn_name"],
-                    left_public_ip=self.instal_info["vpn"]["ext_net_publicip"],
-                    left_subnet=self.instal_info["vdc_network"]["tunnel_subnet_cidr"],
-                    right_public_ip=self.installer.local_vpn_public_gw,
-                    right_subnet=self.installer.local_tunnel_subnet)
+                    tunnel_name=self.cloud_info["vpn_conn_name"]["tunnel_conn_name"],
+                    left_public_ip=self.cloud_info["cascaded_vpn_info"]["public_ip"],
+                    left_subnet=self.cloud_info["cascaded_subnets_info"]["tunnel_bearing"],
+                    right_public_ip=self.cloud_info["cascading_vpn_info"]["public_ip"],
+                    right_subnet=self.cloud_info["cascading_subnets_info"]["tunnel_bearing"])
         cloud_vpn_cf.do_config()
 
     def config_vpn(self):
-        if self.cloud_params['localmode'] == True :
-            LOG.info("config local vpn")
+        if self.cloud_params['project_info']['LocalMode'] == True :
+            LOG.info("config cascading vpn")
             local_vpn_cf = VpnConfiger(
-                    host_ip=self.installer.local_vpn_ip,
+                    host_ip=self.cloud_info["cascading_vpn_info"]["public_ip"],
                     user=constant.VpnConstant.VPN_ROOT,
                     password=constant.VpnConstant.VPN_ROOT_PWD)
 
             local_vpn_cf.register_add_conns(
-                    tunnel_name=self.vpn_conn_name["tunnel_conn_name"],
-                    left_public_ip=self.installer.local_vpn_public_gw,
-                    left_subnet=self.installer.local_tunnel_subnet,
-                    right_public_ip=self.instal_info["vpn"]["public_ip_vpn"],
-                    right_subnet=self.instal_info["vdc_network"]["tunnel_subnet_cidr"])
+                    tunnel_name=self.cloud_info["vpn_conn_name"]["tunnel_conn_name"],
+                    left_public_ip=self.cloud_info["cascading_vpn_info"]["public_ip"],
+                    left_subnet=self.cloud_info["cascading_subnets_info"]["tunnel_bearing"],
+                    right_public_ip=self.cloud_info["cascaded_vpn_info"]["public_ip"],
+                    right_subnet=self.cloud_info["cascaded_subnets_info"]["tunnel_bearing"])
             local_vpn_cf.do_config()
 
             LOG.info("config vcloud vpn thread")
             cloud_vpn_cf = VpnConfiger(
-                    host_ip=self.instal_info["vpn"]["public_ip_vpn"],
+                    host_ip=self.cloud_info["cascaded_vpn_info"]["public_ip"],
                     user=constant.VpnConstant.VCLOUD_VPN_ROOT,
                     password=constant.VpnConstant.VCLOUD_VPN_ROOT_PWD)
 
             cloud_vpn_cf.register_add_conns(
-                    tunnel_name=self.vpn_conn_name["tunnel_conn_name"],
-                    left_public_ip=self.instal_info["vpn"]["public_ip_vpn"],
-                    left_subnet=self.instal_info["vdc_network"]["tunnel_subnet_cidr"],
-                   right_public_ip=self.installer.local_vpn_public_gw,
-                   right_subnet=self.installer.local_tunnel_subnet)
+                    tunnel_name=self.cloud_info["vpn_conn_name"]["tunnel_conn_name"],
+                    left_public_ip=self.cloud_info["cascaded_vpn_info"]["public_ip"],
+                    left_subnet=self.cloud_info["cascaded_subnets_info"]["tunnel_bearing"],
+                    right_public_ip=self.cloud_info["cascading_vpn_info"]["public_ip"],
+                    right_subnet=self.cloud_info["cascading_subnets_info"]["tunnel_bearing"])
             cloud_vpn_cf.do_config()
         else :
-            LOG.info("config local vpn")
+            LOG.info("config cascading vpn")
             local_vpn_cf = VpnConfiger(
-                    host_ip=self.installer.local_vpn_ip,
+                    host_ip=self.cloud_info["cascading_vpn_info"]["public_ip"],
                     user=constant.VpnConstant.VPN_ROOT,
                     password=constant.VpnConstant.VPN_ROOT_PWD)
 
             local_vpn_cf.register_add_conns(
-                    tunnel_name=self.vpn_conn_name["api_conn_name"],
-                    left_public_ip=self.installer.local_vpn_public_gw,
-                    left_subnet=self.installer.local_api_subnet,
-                    right_public_ip=self.instal_info["vpn"]["ext_net_publicip"],
-                    right_subnet=self.instal_info["vdc_network"]["api_subnet_cidr"])
+                    tunnel_name=self.cloud_info["vpn_conn_name"]["api_conn_name"],
+                    left_public_ip=self.cloud_info["cascading_vpn_info"]["public_ip"],
+                    left_subnet=self.cloud_info["cascading_subnets_info"]["external_api"],
+                    right_public_ip=self.cloud_info["cascaded_vpn_info"]["public_ip"],
+                    right_subnet=self.cloud_info["cascaded_subnets_info"]["external_api"])
 
             local_vpn_cf.register_add_conns(
-                    tunnel_name=self.vpn_conn_name["tunnel_conn_name"],
-                    left_public_ip=self.installer.local_vpn_public_gw,
-                    left_subnet=self.installer.local_tunnel_subnet,
-                    right_public_ip=self.instal_info["vpn"]["ext_net_publicip"],
-                    right_subnet=self.instal_info["vdc_network"]["tunnel_subnet_cidr"])
+                    tunnel_name=self.cloud_info["vpn_conn_name"]["tunnel_conn_name"],
+                    left_public_ip=self.cloud_info["cascading_vpn_info"]["public_ip"],
+                    left_subnet=self.cloud_info["cascading_subnets_info"]["tunnel_bearing"],
+                    right_public_ip=self.cloud_info["cascaded_vpn_info"]["public_ip"],
+                    right_subnet=self.cloud_info["cascaded_subnets_info"]["tunnel_bearing"])
             local_vpn_cf.do_config()
 
     def config_route(self):
-        if self.cloud_params['localmode'] == True :
+        if self.cloud_params['project_info']['LocalMode'] == True :
             LOG.info("add route to cascading ...")
             self._add_vpn_route(
-                    host_ip=self.installer.cascading_api_ip,
+                    host_ip=self.cloud_info["cascading_info"]["external_api_ip"],
                     user=constant.Cascading.ROOT,
                     passwd=constant.Cascading.ROOT_PWD,
-                    access_cloud_tunnel_subnet=self.instal_info["vdc_network"]["tunnel_subnet_cidr"],
-                    tunnel_gw=self.installer.local_vpn_tunnel_ip)
+                    access_cloud_tunnel_subnet=self.cloud_info["cascaded_subnets_info"]["tunnel_bearing"],
+                    tunnel_gw=self.cloud_info["cascading_vpn_info"]["tunnel_bearing_ip"])
 
             check_host_status(
-                        host=self.instal_info["cascaded"]["public_ip_api_reverse"],
+                        host=self.cloud_info["cascaded_info"]["public_ip"],
                         user=constant.VcloudConstant.ROOT,
                         password=constant.VcloudConstant.ROOT_PWD,
-                        retry_time=100, interval=3)    #waite cascaded vm started
+                        retry_time=100, interval=3)    #wait cascaded vm started
 
             LOG.info("add route to vcloud on cascaded ...")
             self._add_vpn_route(
-                    host_ip=self.instal_info["cascaded"]["public_ip_api_reverse"],
+                    host_ip=self.cloud_info["cascaded_info"]["public_ip"],
                     user=constant.VcloudConstant.ROOT,
                     passwd=constant.VcloudConstant.ROOT_PWD,
-                    access_cloud_tunnel_subnet=self.installer.local_tunnel_subnet,
-                    tunnel_gw=self.instal_info["vpn"]["vpn_tunnel_ip"])
+                    access_cloud_tunnel_subnet=self.cloud_info["cascading_subnets_info"]["tunnel_bearing"],
+                    tunnel_gw=self.cloud_info["cascaded_vpn_info"]["tunnel_bearing_ip"])
 
         else :
              LOG.info("add route to cascading ...")
              self._add_vpn_route_with_api(
-                    host_ip=self.installer.cascading_api_ip,
+                    host_ip=self.cloud_info["cascading_info"]["external_api_ip"],
                     user=constant.Cascading.ROOT,
                     passwd=constant.Cascading.ROOT_PWD,
-                    access_cloud_api_subnet=self.instal_info["vdc_network"]["api_subnet_cidr"],
-                    api_gw=self.installer.local_vpn_api_ip,
-                    access_cloud_tunnel_subnet=self.instal_info["vdc_network"]["tunnel_subnet_cidr"],
-                    tunnel_gw=self.installer.local_vpn_tunnel_ip)
+                    access_cloud_api_subnet=self.cloud_info["cascaded_subnets_info"]["external_api"],
+                    api_gw=self.cloud_info["cascading_vpn_info"]["external_api_ip"],
+                    access_cloud_tunnel_subnet=self.cloud_info["cascaded_subnets_info"]["tunnel_bearing"],
+                    tunnel_gw=self.cloud_info["cascading_vpn_info"]["tunnel_bearing_ip"])
 
              LOG.info("add route to vcloud on cascaded ...")
              while True:
                  check_host_status(
-                        host=self.instal_info["cascaded"]["tunnel_ip"],
+                        host=self.cloud_info["cascaded_info"]["tunnel_bearing_ip"],
                         user=constant.VcloudConstant.ROOT,
                         password=constant.VcloudConstant.ROOT_PWD,
                         retry_time=100, interval=3)    #waite cascaded vm started
 
                  self._add_vpn_route_with_api(
-                        host_ip=self.instal_info["cascaded"]["tunnel_ip"],
+                        host_ip=self.cloud_info["cascaded_info"]["tunnel_bearing_ip"],
                         user=constant.VcloudConstant.ROOT,
                         passwd=constant.VcloudConstant.ROOT_PWD,
-                        access_cloud_api_subnet=self.installer.local_api_subnet,
-                        api_gw=self.instal_info["vpn"]["vpn_api_ip"],
-                        access_cloud_tunnel_subnet=self.installer.local_tunnel_subnet,
-                        tunnel_gw=self.instal_info["vpn"]["vpn_tunnel_ip"])
+                        access_cloud_api_subnet=self.cloud_info["cascading_subnets_info"]["external_api"],
+                        api_gw=self.cloud_info["cascaded_info"]["external_api_ip"],
+                        access_cloud_tunnel_subnet=self.cloud_info["cascading_subnets_info"]["tunnel_bearing"],
+                        tunnel_gw=self.cloud_info["cascaded_info"]["tunnel_bearing_ip"])
                  try :
                      flag = check_host_status(
-                            host=self.instal_info["cascaded"]["api_ip"],
+                            host=self.cloud_info["cascaded_info"]["external_api_ip"],
                             user=constant.VcloudConstant.ROOT,
                             password=constant.VcloudConstant.ROOT_PWD,
                             retry_time=1, interval=1)    #test api net
@@ -176,6 +210,76 @@ class VcloudCloudConfig:
 
                  if flag :
                      break
+
+
+    def _enable_network_cross(self):
+        cloud_id = self.cloud_info["cloud_id"]
+
+        vpn_cfg = VpnConfiger(
+                host_ip=self.cloud_info["cascaded_vpn_info"]["public_ip"],
+                user=constant.VpnConstant.VPN_ROOT,
+                password=constant.VpnConstant.VPN_ROOT_PWD)
+
+        for other_cloud_id in self.cloud_info_handler.list_all_cloud_id():
+            if other_cloud_id == cloud_id:
+                continue
+
+            other_cloud = \
+                self.cloud_info_handler.get_cloud_info_with_id(other_cloud_id)
+            if not other_cloud["access"]:
+                continue
+
+            other_vpn_cfg = VpnConfiger(host_ip=other_cloud["cascaded_vpn_info"]["public_ip"],
+                            user=constant.VpnConstant.VPN_ROOT,
+                            password=constant.VpnConstant.VPN_ROOT_PWD)
+
+            LOG.info("add conn on tunnel vpns...")
+            tunnel_conn_name = "%s-tunnel-%s" % (cloud_id, other_cloud_id)
+            vpn_cfg.register_add_conns(
+                tunnel_name=tunnel_conn_name,
+                left_public_ip=self.cloud_info[" "]["public_ip"],
+                left_subnet=self.cloud_info["cascaded_subnets_info"]["tunnel_bearing"],
+                right_public_ip=other_cloud["cascaded_vpn_info"]["public_ip"],
+                right_subnet=other_cloud["cascaded_subnets_info"]["tunnel_bearing"])
+
+            other_vpn_cfg.register_add_conns(
+                tunnel_name=tunnel_conn_name,
+                left_public_ip=other_cloud["cascaded_vpn_info"]["public_ip"],
+                left_subnet=other_cloud["cascaded_subnets_info"]["tunnel_bearing"],
+                right_public_ip=self.cloud_info['cascaded_vpn_info']['public_ip'],
+                right_subnet=self.cloud_info['cascaded_subnets_info']['tunnel_bearing'])
+            vpn_cfg.do_config()
+            other_vpn_cfg.do_config()
+
+            LOG.info("add route on cascadeds...")
+            execute_cmd_without_stdout(
+                host=self.cloud_info["cascaded_info"]["public_ip"],
+                user=constant.HwsConstant.ROOT,
+                password=constant.HwsConstant.ROOT_PWD,
+                cmd='cd %(dir)s; sh %(script)s %(subnet)s %(gw)s'
+                    % {"dir": constant.Cascaded.REMOTE_HWS_SCRIPTS_DIR,
+                       "script": constant.Cascaded.ADD_API_ROUTE_SCRIPT,
+                       "subnet": other_cloud["cascaded_subnets_info"]["tunnel_bearing"],
+                       "gw": self.cloud_info["cascaded_vpn_info"]['tunnel_bearing_ip']})
+
+            execute_cmd_without_stdout(
+                host=other_cloud["cascaded_info"]["public_ip"],
+                user=constant.HwsConstant.ROOT,
+                password=constant.HwsConstant.ROOT_PWD,
+                cmd='cd %(dir)s; sh %(script)s %(subnet)s %(gw)s'
+                    % {"dir": constant.Cascaded.REMOTE_HWS_SCRIPTS_DIR,
+                       "script": constant.Cascaded.ADD_API_ROUTE_SCRIPT,
+                       "subnet": self.cloud_info["cascaded_subnets_info"]["tunnel_bearing"],
+                       "gw": other_cloud["cascaded_vpn_info"]['tunnel_bearing_ip']})
+
+            # add cloud-sg
+            LOG.info("add security group...")
+            #TODO
+        return True
+
+
+
+
 
     @staticmethod
     def _add_vpn_route_with_api(host_ip, user, passwd,
@@ -221,35 +325,34 @@ class VcloudCloudConfig:
     def config_cascading(self):
         #TODO(lrx):remove v2v_gw
         LOG.info("config cascading")
-        if self.cloud_params['localmode'] == True :
-            cascaded_api_ip = self.instal_info["cascaded"]["public_ip_api_reverse"]
+        if self.cloud_params['project_info']['LocalMode'] == True :
+            cascaded_api_ip = self.cloud_info["cascaded_info"]['public_ip']
         else :
-            cascaded_api_ip = self.instal_info["cascaded"]['api_ip']
+            cascaded_api_ip = self.cloud_info["cascaded_info"]['external_api_ip']
 
         cascading_cf = CascadingConfiger(
-                cascading_ip=self.installer.cascading_api_ip,
+                cascading_ip=self.cloud_info["cascading_info"]["external_api_ip"],
                 user=constant.Cascading.ROOT,
                 password=constant.Cascading.ROOT_PWD,
-                cascaded_domain=self.cloudinfo.cascaded_domain,
+                cascaded_domain=self.cloud_info["cascaded_info"]["domain"],
                 cascaded_api_ip=cascaded_api_ip,
                 v2v_gw='1.1.1.1')
         cascading_cf.do_config()
 
     def config_cascaded(self):
         LOG.info("config cascaded")
-        if self.cloud_params['localmode'] == True :
-            cascaded_public_ip = self.instal_info["cascaded"]["public_ip_api_reverse"]
-        else :
-            cascaded_public_ip = self.instal_info["cascaded"]['tunnel_ip']
+        self._modify_cascaded_external_api()    #modify cascaded external api first
+
+        cascaded_public_ip = self.cloud_info["cascaded_info"]["public_ip"]
 
         cascaded_cf = CascadedConfiger(
                 public_ip_api=cascaded_public_ip,
-                api_ip=self.instal_info["cascaded"]["api_ip"],
-                domain=self.cloudinfo.cascaded_domain,
+                api_ip=self.cloud_info["cascaded_info"]["external_api_ip"],
+                domain=self.cloud_info["cascaded_info"]["domain"],
                 user=constant.VcloudConstant.ROOT,
                 password=constant.VcloudConstant.ROOT_PWD,
-                cascading_domain=self.installer.cascading_domain,
-                cascading_api_ip=self.installer.cascading_api_ip)
+                cascading_domain=self.cloud_info["cascading_info"]["domain"],
+                cascading_api_ip=self.cloud_info["cascading_info"]["external_api_ip"])
 
         cascaded_cf.do_config()
 
@@ -258,8 +361,8 @@ class VcloudCloudConfig:
         #pdb.set_trace()
         LOG.info("config proxy ...")
         if self.proxy_info is None:
-            LOG.info("wait proxy ...")
-            self.proxy_info = self._get_proxy_retry()
+            raise InstallCascadedFailed("no proxy , install cascaded failed")
+
 
         LOG.info("add dhcp to proxy ...")
 
@@ -268,7 +371,7 @@ class VcloudCloudConfig:
         LOG.debug("proxy_id = %s, proxy_num = %s"
                      % (proxy_id, proxy_num))
 
-        self._config_proxy(self.installer.cascading_api_ip, self.proxy_info)
+        self._config_proxy(self.cloud_info["cascading_info"]["external_api_ip"], self.proxy_info)
 
     @staticmethod
     def _config_proxy(cascading_ip, proxy_info):
@@ -286,32 +389,23 @@ class VcloudCloudConfig:
                 LOG.error("config proxy error, try again...")
         return True
 
-    def _get_proxy_retry(self):
-        LOG.info("get proxy retry ...")
-        proxy_info = proxy_manager.distribute_proxy(self.installer)
-        for i in range(10):
-            if proxy_info is None:
-                time.sleep(240)
-                proxy_info = proxy_manager.distribute_proxy(self.installer)
-            else:
-                return proxy_info
-        raise exception.ConfigProxyFailure(error="check proxy config result failed")
 
     def config_patch(self):
         #TODO(lrx):modify to vcloud patch
         LOG.info("config patches config ...")
         #pdb.set_trace()
-        if self.cloud_params['localmode'] == True :
-            cascaded_public_ip = self.instal_info["cascaded"]["public_ip_api_reverse"]
+        if self.cloud_params['project_info']['LocalMode'] == True :
+            cascaded_public_ip = self.cloud_info["cascaded_info"]["public_ip"]
         else :
-            cascaded_public_ip = self.instal_info["cascaded"]['tunnel_ip']
+            cascaded_public_ip = self.cloud_info["cascaded_info"]['external_api_ip']
+
         self._config_patch_tools(
-                host_ip=self.installer.cascading_api_ip,
+                host_ip=self.cloud_info["cascading_info"]["external_api_ip"],
                 user=constant.Cascading.ROOT,
                 passwd=constant.Cascading.ROOT_PWD,
-                cascaded_domain=self.cloudinfo.cascaded_domain,
+                cascaded_domain=self.cloud_info["cascaded_info"]["domain"],
                 proxy_info=self.proxy_info,
-                install_info=self.instal_info)
+                )
 
         self._config_vcloud(
                 host_ip=cascaded_public_ip,
@@ -319,29 +413,26 @@ class VcloudCloudConfig:
                 passwd=constant.VcloudConstant.ROOT_PWD)
 
 
-        self._deploy_patches(host_ip=self.installer.cascading_api_ip,
+        self._deploy_patches(host_ip=self.cloud_info["cascading_info"]["external_api_ip"],
                              user=constant.Cascading.ROOT,
                              passwd=constant.Cascading.ROOT_PWD)
 
     def _config_patch_tools(self, host_ip, user, passwd,
-                            cascaded_domain, proxy_info, install_info):
+                            cascaded_domain, proxy_info):
         for i in range(10):
             try:
                 execute_cmd_without_stdout(
                     host=host_ip, user=user, password=passwd,
                     cmd='cd %(dis)s; sh %(script)s '
                         '%(proxy_num)s %(proxy_host_name)s %(cascaded_domain)s '
-                        '%(local_tunnel_subnet)s %(cloud_vpn_tunnel_ip)s '
                         '%(cascading_domain)s'
                         % {"dis": constant.PatchesConstant.REMOTE_SCRIPTS_DIR,
                            "script":
                                constant.PatchesConstant.CONFIG_PATCHES_SCRIPT,
-                           "proxy_num": proxy_info["proxy_num"],
-                           "proxy_host_name": proxy_info["id"],
-                           "cascaded_domain": cascaded_domain,
-                           "local_tunnel_subnet": self.installer.local_tunnel_subnet,
-                           "cloud_vpn_tunnel_ip": install_info["vpn"]["vpn_tunnel_ip"],
-                           "cascading_domain": self.installer.cascading_domain})
+                           "proxy_num": self.cloud_info["proxy_info"]["proxy_num"],
+                           "proxy_host_name": self.cloud_info["proxy_info"]["id"],
+                           "cascaded_domain": self.cloud_info["cascaded_info"]["domain"],
+                           "cascading_domain": self.cloud_info["cascading_info"]["domain"]})
                 return True
             except Exception as e:
                 LOG.error("config patch tool error, error: %s"
@@ -357,21 +448,46 @@ class VcloudCloudConfig:
                     cmd='cd %(dis)s; sh %(script)s '
                         '%(vcloud_host_ip)s %(vcloud_org)s %(vcloud_vdc)s '
                         '%(vcloud_user)s %(vcloud_password)s '
+                        '%(vcloud_tunnel_cidr)s %(vcloud_route_gw)s '
                         % {"dis": constant.Cascaded.REMOTE_VCLOUD_SCRIPTS_DIR,
                            "script":
                                constant.Cascaded.CONFIG_VCLOUD_SCRIPT,
-                           "vcloud_host_ip": self.installer.vcloud_url,
-                           "vcloud_org": self.installer.vcloud_org,
-                           "vcloud_vdc": self.installer.vcloud_vdc,
-                           "vcloud_user": self.installer.username,
-                           "vcloud_password": self.installer.passwd})
+                           "vcloud_host_ip": self.cloud_params["project_info"]["VcloudUrl"] ,
+                           "vcloud_org": self.cloud_params["project_info"]["VcloudOrg"] ,
+                           "vcloud_vdc": self.cloud_params["project_info"]["VcloudVdc"] ,
+                           "vcloud_user": self.cloud_params["project_info"]["UserName"] ,
+                           "vcloud_password": self.cloud_params["project_info"]["PassWd"] ,
+                           "vcloud_tunnel_cidr": self.cloud_info["cascaded_subnets_info"]["tunnel_bearing"],
+                           "vcloud_route_gw" : self.cloud_info["cascaded_vpn_info"]["tunnel_bearing_ip"]})
+
+                self._restart_nova_and_cinder_computer(host_ip, user, passwd)
 
                 return True
             except Exception as e:
-                LOG.error("config vcloud error, error: %s"
-                             % e.message)
+                LOG.error("config vcloud error, error: %s" % e.message)
                 continue
         return True
+
+    @staticmethod
+    def _restart_nova_and_cinder_computer(host_ip, user, passwd):
+        execute_cmd_without_stdout(
+            host=host_ip, user=user, password=passwd,
+            cmd='source /root/adminrc;'
+                'cps host-template-instance-operate --action stop --service nova nova-compute')
+        time.sleep(1)
+        execute_cmd_without_stdout(
+            host=host_ip, user=user, password=passwd,
+            cmd='source /root/adminrc;'
+                'cps host-template-instance-operate --action start --service nova nova-compute')
+        execute_cmd_without_stdout(
+            host=host_ip, user=user, password=passwd,
+            cmd='source /root/adminrc;'
+                'cps host-template-instance-operate --action stop --service cinder cinder-volume')
+        time.sleep(1)
+        execute_cmd_without_stdout(
+            host=host_ip, user=user, password=passwd,
+            cmd='source /root/adminrc;'
+                'cps host-template-instance-operate --action start --service cinder cinder-volume')
 
 
     @staticmethod
@@ -387,17 +503,12 @@ class VcloudCloudConfig:
 
     def config_storge(self):
         LOG.info("config storage...")
-        #pdb.set_trace()
-        if self.cloud_params['localmode'] == True :
-            cascaded_api_ip = self.instal_info["cascaded"]["public_ip_api_reverse"]
-        else :
-            cascaded_api_ip = self.instal_info["cascaded"]['api_ip']
         self._config_storage(
-                host=cascaded_api_ip,
+                host=self.cloud_info["cascaded_info"]["tunnel_bearing_ip"],
                 user=constant.VcloudConstant.ROOT,
                 password=constant.VcloudConstant.ROOT_PWD,
-                cascading_domain=self.installer.cascading_domain,
-                cascaded_domain=self.cloudinfo.cascaded_domain,
+                cascading_domain=self.cloud_info["cascading_info"]["domain"] ,
+                cascaded_domain=self.cloud_info["cascaded_info"]["domain"] ,
                 )
 
     def _config_storage(self, host, user, password, cascading_domain,
@@ -412,8 +523,8 @@ class VcloudCloudConfig:
                         '%(cascaded_domain)s;'
                         % {"dir": constant.Cascaded.REMOTE_VCLOUD_SCRIPTS_DIR,
                            "create_env_script": constant.Cascaded.CREATE_ENV,
-                           "cascading_domain": cascading_domain,
-                           "cascaded_domain": cascaded_domain,
+                           "cascading_domain": self.cloud_info["cascading_info"]["domain"],
+                           "cascaded_domain": self.cloud_info["cascaded_info"]["domain"],
                            })
                 break
             except Exception as e1:
@@ -428,66 +539,10 @@ class VcloudCloudConfig:
 
     #TODO(lrx):config the network between cloud and cloud
     def config_extnet(self):
-        LOG.info("config ext net...")
-        self._config_ext_network(cloud=self.cloudinfo, install_info=self.instal_info)
+        self._config_extnet()
 
-        if self.cloud_params['access']:
-            try:
-                self._enable_network_cross(
-                        cloud=self.cloudinfo, cloud_install_info=self.instal_info)
-            except Exception as e:
-                    LOG.error("enable network cross error: %s"
-                                 % e.message)
-
-    def _config_ext_network(self, cloud, install_info):
-        cascaded_tunnel_ip = install_info["cascaded"]["tunnel_ip"]
-        eips = install_info["ext_net_eips"]
-        vlan = vlan_manager.allocate_vlan()
-        used_ip = [install_info["cascaded"]["api_ip"],
-                   install_info["vpn"]["api_ip"],
-                   install_info["v2v_gateway"]["ip"],
-                   install_info["ceph_cluster"]["deploy_ip"],
-                   install_info["ceph_cluster"]["node1_ip"],
-                   install_info["ceph_cluster"]["node2_ip"],
-                   install_info["ceph_cluster"]["node3_ip"]]
-
-        self._update_l3_agent_conf(host_ip=cascaded_tunnel_ip,
-                                   user=constant.Cascaded.ROOT,
-                                   passwd=constant.Cascaded.ROOT_PWD,
-                                   vcloud_region=cloud.get_region_id(),
-                                   access_key=cloud.access_key,
-                                   secret_key=cloud.secret_key,
-                                   subnet_cidr=install_info["vpc"]["api_subnet_cidr"],
-                                   interface_ip=install_info["cascaded"]["api_ip"],
-                                   interface_id=install_info["cascaded"]["api_interface_id"],
-                                   used_ips=used_ip)
-
-        self._update_l3_proxy_code(proxy_ip=cloud.cloud_proxy["manageip"],
-                                   user=constant.Proxy.USER,
-                                   passwd=constant.Proxy.PWD,
-                                   proxy_num=cloud.cloud_proxy["proxy_num"])
-
-        self._update_external_api_vlan(
-                host_ip=cascaded_tunnel_ip, user=constant.Cascaded.ROOT,
-                passwd=constant.Cascaded.ROOT_PWD, vlan=vlan)
-
-        self._create_ext_net(host_ip=self.installer.cascading_api_ip,
-                             user=constant.Cascading.ROOT,
-                             passwd=constant.Cascading.ROOT_PWD,
-                             alias=cloud.az_alias, vlan=vlan)
-
-        self._create_ext_subnet(host_ip=self.installer.cascading_api_ip,
-                                user=constant.Cascading.ROOT,
-                                passwd=constant.Cascading.ROOT_PWD,
-                                alias=cloud.az_alias, eips=eips)
-
-        proxy_num = cloud.cloud_proxy["proxy_num"]
-        ext_net_name = "ext-%s-net" % cloud.az_alias
-        self._update_proxy_params(host_ip=self.installer.cascading_api_ip,
-                                  user=constant.Cascading.ROOT,
-                                  passwd=constant.Cascading.ROOT_PWD,
-                                  proxy_num=proxy_num,
-                                  ext_net_name=ext_net_name)
+    def _config_extnet(self):
+        self._enable_network_cross()
 
     @staticmethod
     def _update_l3_agent_conf(host_ip, user, passwd,
@@ -646,103 +701,7 @@ class VcloudCloudConfig:
                 time.sleep(1)
                 continue
 
-    @staticmethod
-    def _enable_network_cross(self, cloud, cloud_install_info):
-        #TODO(lrx):add installer functions
-        cloud_id = cloud.cloud_id
-        vpc_info = cloud_install_info["vpc"]
-        vpn_info = cloud_install_info["vpn"]
-        cascaded_info = cloud_install_info["cascaded"]
-        vpn = VPN(public_ip=vpn_info["eip_public_ip"],
-                  user=VpnConstant.VCLOUD_VPN_ROOT,
-                  pass_word=VpnConstant.VCLOUD_VPN_ROOT_PWD)
 
-        for other_cloud_id in VcloudCloudDataHandler().list_vcloud_clouds():
-            if other_cloud_id == cloud_id:
-                continue
-
-            other_cloud = VcloudCloudDataHandler().get_vcloud_cloud(other_cloud_id)
-            other_cloud_install_info = \
-                self.installer.get_vcloud_access_cloud_install_info(other_cloud_id)
-            if not other_cloud.access:
-                continue
-
-            other_vpc_info = other_cloud_install_info["vpc"]
-            other_vpn_info = other_cloud_install_info["vpn"]
-            other_cascaded_info = other_cloud_install_info["cascaded"]
-            other_vpn = VPN(public_ip=other_vpn_info["eip_public_ip"],
-                            user=VpnConstant.VCLOUD_VPN_ROOT,
-                            pass_word=VpnConstant.VCLOUD_VPN_ROOT_PWD)
-
-            LOG.info("add conn on api vpns...")
-            api_conn_name = "%s-api-%s" % (cloud_id, other_cloud_id)
-            vpn.add_tunnel(tunnel_name=api_conn_name,
-                           left=vpn_info["eip_public_ip"],
-                           left_subnet=vpc_info["api_subnet_cidr"],
-                           right=other_vpn_info["eip_public_ip"],
-                           right_subnet=other_vpc_info["api_subnet_cidr"])
-
-            other_vpn.add_tunnel(tunnel_name=api_conn_name,
-                                 left=other_vpn_info["eip_public_ip"],
-                                 left_subnet=other_vpc_info["api_subnet_cidr"],
-                                 right=vpn_info["eip_public_ip"],
-                                 right_subnet=vpc_info["api_subnet_cidr"])
-
-            LOG.info("add conn on tunnel vpns...")
-            tunnel_conn_name = "%s-tunnel-%s" % (cloud_id, other_cloud_id)
-            vpn.add_tunnel(tunnel_name=tunnel_conn_name,
-                           left=vpn_info["eip_public_ip"],
-                           left_subnet=vpc_info["tunnel_subnet_cidr"],
-                           right=other_vpn_info["eip_public_ip"],
-                           right_subnet=other_vpc_info["tunnel_subnet_cidr"])
-
-            other_vpn.add_tunnel(tunnel_name=tunnel_conn_name,
-                                 left=other_vpn_info["eip_public_ip"],
-                                 left_subnet=other_vpc_info["tunnel_subnet_cidr"],
-                                 right=vpn_info["eip_public_ip"],
-                                 right_subnet=vpc_info["tunnel_subnet_cidr"])
-
-            vpn.restart_ipsec_service()
-            other_vpn.restart_ipsec_service()
-
-            LOG.info("add route on openstack cascadeds...")
-            execute_cmd_without_stdout(
-                host=cascaded_info["tunnel_ip"],
-                user=constant.Cascaded.ROOT,
-                password=constant.Cascaded.ROOT_PWD,
-                cmd='cd %(dir)s; sh %(script)s %(subnet)s %(gw)s'
-                    % {"dir": constant.Cascaded.REMOTE_SCRIPTS_DIR,
-                       "script": constant.Cascaded.ADD_API_ROUTE_SCRIPT,
-                       "subnet": other_vpc_info["api_subnet_cidr"],
-                       "gw": vpn_info["api_ip"]})
-
-            execute_cmd_without_stdout(
-                host=other_cascaded_info["tunnel_ip"],
-                user=constant.Cascaded.ROOT,
-                password=constant.Cascaded.ROOT_PWD,
-                cmd='cd %(dir)s; sh %(script)s %(subnet)s %(gw)s'
-                    % {"dir": constant.Cascaded.REMOTE_SCRIPTS_DIR,
-                       "script": constant.Cascaded.ADD_API_ROUTE_SCRIPT,
-                       "subnet": vpc_info["api_subnet_cidr"],
-                       "gw": other_vpn_info["api_ip"]})
-
-            # add cloud-sg
-            LOG.info("add vcloud sg...")
-            self.installer.vcloud_access_cloud_add_security(
-                region=cloud.get_region_id(),
-                az=cloud.az,
-                access_key=cloud.access_key,
-                secret_key=cloud.secret_key,
-                cidr="%s/32" % other_vpn_info["eip_public_ip"])
-
-            self.installer.vcloud_access_cloud_add_security(
-                region=other_cloud.get_region_id(),
-                az=cloud.az,
-                access_key=other_cloud.access_key,
-                secret_key=other_cloud.secret_key,
-                cidr="%s/32" % vpn_info["eip_public_ip"])
-
-        return True
 
     def remove_existed_cloud(self):
         #config cascading unregister
@@ -762,79 +721,79 @@ class VcloudCloudConfig:
 
         try:
             execute_cmd_without_stdout(
-                host=self.installer.cascading_api_ip,
+                host=self.cloud_info["cascading_info"]["external_api_ip"],
                 user=constant.Cascading.ROOT,
                 password=constant.Cascading.ROOT_PWD,
                 cmd='cd %(dir)s; sh %(script)s %(cascaded_domain)s'
                     % {"dir": constant.RemoveConstant.REMOTE_SCRIPTS_DIR,
                        "script":
                            constant.RemoveConstant.REMOVE_CINDER_SERVICE_SCRIPT,
-                       "cascaded_domain": self.cloudinfo.cascaded_domain})
+                       "cascaded_domain": self.cloud_info["cascaded_info"]["domain"]})
         except Exception as e:
             LOG.error("remove cinder service error, error: %s" % e.message)
 
         try:
             execute_cmd_without_stdout(
-                host=self.installer.cascading_api_ip,
+                host=self.cloud_info["cascading_info"]["external_api_ip"],
                 user=constant.Cascading.ROOT,
                 password=constant.Cascading.ROOT_PWD,
                 cmd='cd %(dir)s; sh %(script)s %(cascaded_domain)s'
                     % {"dir": constant.RemoveConstant.REMOTE_SCRIPTS_DIR,
                        "script":
                            constant.RemoveConstant.REMOVE_NEUTRON_AGENT_SCRIPT,
-                       "cascaded_domain": self.cloudinfo.cascaded_domain})
+                       "cascaded_domain": self.cloud_info["cascaded_info"]["domain"]})
 
             execute_cmd_without_stdout(
-                host=self.installer.cascading_api_ip,
+                host=self.cloud_info["cascading_info"]["external_api_ip"],
                 user=constant.Cascading.ROOT,
                 password=constant.Cascading.ROOT_PWD,
                 cmd='cd %(dir)s; sh %(script)s %(proxy_host)s'
                     % {"dir": constant.RemoveConstant.REMOTE_SCRIPTS_DIR,
                        "script":
                            constant.RemoveConstant.REMOVE_NEUTRON_AGENT_SCRIPT,
-                       "proxy_host": self.cloudinfo.cloud_proxy["id"]})
+                       "proxy_host": self.cloud_info["proxy_info"]["id"]})
 
         except Exception as e:
             LOG.error("remove neutron agent error, error: %s" % e.message)
 
         try:
             execute_cmd_without_stdout(
-                host=self.installer.cascading_api_ip,
+                host=self.cloud_info["cascading_info"]["external_api_ip"],
                 user=constant.Cascading.ROOT,
                 password=constant.Cascading.ROOT_PWD,
                 cmd='cd %(dir)s; sh %(script)s %(cascaded_domain)s'
                     % {"dir": constant.RemoveConstant.REMOTE_SCRIPTS_DIR,
                        "script": constant.RemoveConstant.REMOVE_KEYSTONE_SCRIPT,
-                       "cascaded_domain": self.cloudinfo.cascaded_domain})
+                       "cascaded_domain": self.cloud_info["cascaded_info"]["domain"]})
         except SSHCommandFailure:
             LOG.error("remove keystone endpoint error.")
 
         try:
             execute_cmd_without_stdout(
-                host=self.installer.cascading_api_ip,
+                host=self.cloud_info["cascading_info"]["external_api_ip"],
                 user=constant.Cascading.ROOT,
                 password=constant.Cascading.ROOT_PWD,
                 cmd='cd %(dir)s; '
                     'sh %(script)s %(proxy_host_name)s %(proxy_num)s'
                     % {"dir": constant.RemoveConstant.REMOTE_SCRIPTS_DIR,
                        "script": constant.RemoveConstant.REMOVE_PROXY_SCRIPT,
-                       "proxy_host_name": self.cloudinfo.cloud_proxy["id"],
-                       "proxy_num": self.cloudinfo.cloud_proxy["proxy_num"]})
+                       "proxy_host_name": self.cloud_info["proxy_info"]["id"],
+                       "proxy_num": self.cloud_info["proxy_info"]["proxy_num"]})
         except SSHCommandFailure:
             LOG.error("remove proxy error.")
 
-        if self.cloud_params['localmode'] == True :
-            cascaded_api_ip = self.instal_info["cascaded"]["public_ip_api_reverse"]
+        if self.cloud_params['project_info']['LocalMode'] == True :
+            cascaded_api_ip = self.cloud_info["cascaded_info"]["public_ip"]
         else :
-            cascaded_api_ip = self.instal_info["cascaded"]['api_ip']
+            cascaded_api_ip = self.cloud_info["cascaded_info"]['external_api_ip']
 
         address = "/%(cascaded_domain)s/%(cascaded_ip)s" \
-                  % {"cascaded_domain": self.cloudinfo.cascaded_domain,
+                  % {"cascaded_domain": self.cloud_info["cascaded_info"]["domain"],
                      "cascaded_ip": cascaded_api_ip}
 
         try:
             execute_cmd_without_stdout(
-                host=self.installer.cascading_api_ip,
+                host=self.cloud_info["cascading_info"]["external_api_ip"],
                 user=constant.Cascading.ROOT,
                 password=constant.Cascading.ROOT_PWD,
                 cmd='cd %(dir)s; sh %(script)s remove %(address)s'
@@ -846,9 +805,9 @@ class VcloudCloudConfig:
             LOG.error("remove dns address error.")
 
         # config local_vpn
-        vpn_conn_name = self.cloudinfo.get_vpn_conn_name()
+        vpn_conn_name = self.cloud_info["vpn_conn_name"]
         try:
-            local_vpn = VPN(self.installer.local_vpn_ip,
+            local_vpn = VPN(self.cloud_info["cascading_vpn_info"]["public_ip"],
                             constant.VpnConstant.VPN_ROOT,
                             constant.VpnConstant.VPN_ROOT_PWD)
 

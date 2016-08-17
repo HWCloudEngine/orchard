@@ -1,0 +1,25 @@
+{
+  "AWSTemplateFormatVersion" : "2016-05-31",
+  "Description" : "HWS CloudFormation Sample Template",
+  "Parameters" : {
+  },
+
+  "Resources" : {
+    "Test" : {
+      "Type" : "OS::Heat::HwsCloud",
+      "Properties" : {
+        "CloudType" : "HWS",
+        "AZName" : "az42",
+        "EnableNetworkCrossClouds": "true",
+        "DriverType":"agent",
+	"ProjectInfo":{
+	  "project_id" : "91d957f0b92d48f0b184c26975d2346e",
+          "access_key" : "YKTA94WTIDZNDUVCY4QI",
+          "secret_key": "DHSYAC8LZVB5TCEEX39XMXNJ6BOAGA0UTJA7PCT3"
+          "region" : "cn-north-1",
+          "availability_zone" : "cn-north-1a"
+         }
+      }
+    }
+  }
+}
